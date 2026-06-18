@@ -1,0 +1,39 @@
+{
+  "name": "@merzin/mpvctl",
+  "version": "0.1.0",
+  "description": "MPV daemon control",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rasmusmerzin/mpvctl.git"
+  },
+  "keywords": [
+    "mpv",
+    "mpvd",
+    "mpvctl"
+  ],
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "bin": {
+    "mpvd": "bin/mpvd",
+    "mpvctl": "bin/mpvctl.js"
+  },
+  "files": [
+    "lib",
+    "bin"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "format": "prettier --write .",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "commander": "15"
+  },
+  "devDependencies": {
+    "@types/node": "25",
+    "prettier": "3",
+    "typescript": "6.0"
+  }
+}

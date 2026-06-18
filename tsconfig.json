@@ -1,0 +1,11 @@
+{
+  "include": ["src"],
+  "compilerOptions": {
+    "declaration": true,
+    "module": "nodenext",
+    "rootDir": "src",
+    "outDir": "lib",
+    "strict": true,
+    "types": ["node"]
+  }
+}
