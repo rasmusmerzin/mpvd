@@ -29,9 +29,13 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "commander": "15"
+    "commander": "15",
+    "ink": "^7.1.0",
+    "react": "^19.2.7"
   },
   "devDependencies": {
+    "@types/ink": "^0.5.2",
+    "@types/react": "^19.2.17",
     "@types/node": "25",
     "prettier": "3",
     "typescript": "6.0"
