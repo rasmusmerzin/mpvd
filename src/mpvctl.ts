@@ -1,4 +1,6 @@
+import { program } from "commander";
 import { createConnection } from "node:net";
+import pkg from "../package.json" with { type: "json" };
 
 const socketPath =
   (process.env.XDG_RUNTIME_DIR || process.env.HOME) + "/mpvd.sock";
@@ -17,4 +19,14 @@ function send(...command: (string | number)[]) {
   });
 }
 
-console.log(await send(...process.argv.slice(2)));
+program.name("mpvctl").description("MPV daemon control").version(pkg.version);
+
+program
+  .command("send")
+  .description("Send IPC command")
+  .arguments("<cmd...>")
+  .action(async function (args: string[]) {
+    console.log(await send(...args));
+  });
+
+program.parse();

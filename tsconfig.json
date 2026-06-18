@@ -3,6 +3,7 @@
   "compilerOptions": {
     "declaration": true,
     "module": "nodenext",
+    "resolveJsonModule": true,
     "rootDir": "src",
     "outDir": "lib",
     "strict": true,
