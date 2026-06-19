@@ -1,7 +1,7 @@
 import pkg from "../package.json" with { type: "json" };
 import { Command, program } from "commander";
 import { getPause, getPlaylist, playAtIndex, send, setPause } from "./index.js";
-import { spawnDaemon, killDaemon, printEnv } from "./env.js";
+import { spawnDaemon, killDaemon, printEnv, getDaemonPID } from "./env.js";
 
 program.name("mpvctl").description("MPV daemon control").version(pkg.version);
 
@@ -17,6 +17,17 @@ program
   .action(
     wrapped(async function (args: string[]) {
       print(await send(...args));
+    }),
+  );
+
+program
+  .command("pid")
+  .description("Print mpv instance PID")
+  .action(
+    wrapped(async function () {
+      const pid = await getDaemonPID();
+      if (pid == null) process.exit(1);
+      console.log(pid);
     }),
   );
 
@@ -90,8 +101,10 @@ program
 
 program.parse();
 
-function print(text: any) {
-  if (text) console.log(text);
+function print(value: any) {
+  if (!value) return;
+  if (typeof value === "string") console.log(value);
+  else console.log(JSON.stringify(value));
 }
 
 function wrapped<T, A extends any[]>(

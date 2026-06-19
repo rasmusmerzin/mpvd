@@ -30,16 +30,10 @@ export async function spawnDaemon(): Promise<boolean> {
 }
 
 export async function killDaemon(): Promise<boolean> {
-  let pidText = "";
-  try {
-    pidText = await readFile(MPVD_PID, "utf-8");
-  } catch (e) {
-    return false;
-  }
-  const pid = parseInt(pidText.trim());
   let success = true;
+  const pid = await getDaemonPID();
   try {
-    process.kill(pid);
+    process.kill(pid!);
   } catch (e) {
     success = false;
   }
@@ -50,4 +44,15 @@ export async function killDaemon(): Promise<boolean> {
     await rm(MPVD_PID);
   } catch (e) {}
   return success;
+}
+
+export async function getDaemonPID(): Promise<number | null> {
+  let pidText = "";
+  try {
+    pidText = await readFile(MPVD_PID, "utf-8");
+  } catch (e) {
+    return null;
+  }
+  const pid = parseInt(pidText.trim());
+  return isNaN(pid) ? null : pid;
 }
