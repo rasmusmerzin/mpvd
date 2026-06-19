@@ -1,8 +1,26 @@
 import pkg from "../package.json" with { type: "json" };
 import { Command, program } from "commander";
-import { getPause, getPlaylist, playAtIndex, send, setPause } from "./index.js";
+import {
+  getPause,
+  getPlaylist,
+  spawnDaemon,
+  killDaemon,
+  MPVD_PID,
+  MPVD_SOCK,
+  playAtIndex,
+  send,
+  setPause,
+} from "./index.js";
 
 program.name("mpvctl").description("MPV daemon control").version(pkg.version);
+
+program
+  .command("env")
+  .description("Print environmemnt")
+  .action(() => {
+    console.log(`MPVD_SOCK=${MPVD_SOCK}`);
+    console.log(`MPVD_PID=${MPVD_PID}`);
+  });
 
 program
   .command("send")
@@ -11,6 +29,26 @@ program
   .action(
     wrapped(async function (args: string[]) {
       print(await send(...args));
+    }),
+  );
+
+program
+  .command("init")
+  .description("Initialize mpv instance")
+  .action(
+    wrapped(async function () {
+      const success = await spawnDaemon();
+      process.exit(success ? 0 : 1);
+    }),
+  );
+
+program
+  .command("kill")
+  .description("Kill mpv instance")
+  .action(
+    wrapped(async function () {
+      const success = await killDaemon();
+      process.exit(success ? 0 : 1);
     }),
   );
 
