@@ -38,7 +38,7 @@ mpvd--h() { mpvd-help; }
 mpvd---help() { mpvd-help; }
 
 mpvd-version() {
-  echo "mpvd v1.3.1"
+  echo "mpvd v1.3.2"
   mpv --version | head -n1 | cut -f1,2 -d' '
 }
 mpvd--V() { mpvd-version; }
@@ -52,10 +52,12 @@ mpvd-init() {
   mpvd-stat
 }
 
-mpvd-stat() { pgrep ${*:--a} mpv; }
+mpvd-stat() {
+  [[ -f $MPVD_PID ]] && pgrep -aF "$MPVD_PID"
+}
 mpvd-kill() {
   local e=0
-  pkill ${*:--9} mpv
+  [[ -f $MPVD_PID ]] && kill ${*:--9} "$(cat "$MPVD_PID")"
   if [[ $? != 0 ]]; then e=1; fi
   rm -f "$MPVD_SOCK"
   rm -f "$MPVD_PID"
