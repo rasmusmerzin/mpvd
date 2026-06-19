@@ -23,7 +23,7 @@ mpvd-help() {
   echo '  prev                  Go to previous file'
   echo '  move <from> <to>      Move file in playlist'
   echo '  remove <index>        Remove file at index from playlist'
-  echo '  pick [count=20]       Pick songs from random selection of count'
+  echo '  pick [count=10]       Pick songs from random selection of count'
   echo '  list                  Print playlist state'
   echo '  time                  Print time position of current track'
   echo '  position              Print playlist position of current track'
@@ -38,7 +38,7 @@ mpvd--h() { mpvd-help; }
 mpvd---help() { mpvd-help; }
 
 mpvd-version() {
-  echo "mpvd v1.3.0"
+  echo "mpvd v1.3.1"
   mpv --version | head -n1 | cut -f1,2 -d' '
 }
 mpvd--V() { mpvd-version; }
@@ -90,7 +90,7 @@ mpvd-rm() { mpvd-remove "$@"; }
 
 mpvd-pick() {
   mpvd-init >/dev/null
-  local count=${1:-20}
+  local count=${1:-10}
   local select=$(find -L "$HOME/Music" -maxdepth 2 -iname \*.mp3 | sort -R | head -n "$count")
   echo "$select" \
     | sed "s|^$HOME/Music/||" \
