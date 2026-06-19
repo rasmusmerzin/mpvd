@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 [[ -z $MPVD_SOCK ]] && export MPVD_SOCK="${XDG_RUNTIME_DIR:-$HOME}/mpvd.sock"
+[[ -z $MPVD_PID ]] && export MPVD_PID="${MPVD_SOCK%/*}/mpvd.pid"
 
 mpvd() {
   mpvd-"${1:-init}" "${@:2}"
@@ -37,7 +38,7 @@ mpvd--h() { mpvd-help; }
 mpvd---help() { mpvd-help; }
 
 mpvd-version() {
-  echo "mpvd v1.2.1"
+  echo "mpvd v1.3.0"
   mpv --version | head -n1 | cut -f1,2 -d' '
 }
 mpvd--V() { mpvd-version; }
@@ -46,6 +47,7 @@ mpvd---version() { mpvd-version; }
 mpvd-init() {
   if mpvd-stat; then return; fi
   nohup "$(which mpv)" --idle --no-video --input-ipc-server="$MPVD_SOCK" >/dev/null 2>&1 &
+  echo $! > "$MPVD_PID"
   sleep .1
   mpvd-stat
 }
@@ -56,6 +58,7 @@ mpvd-kill() {
   pkill ${*:--9} mpv
   if [[ $? != 0 ]]; then e=1; fi
   rm -f "$MPVD_SOCK"
+  rm -f "$MPVD_PID"
   return $e
 }
 
