@@ -5,6 +5,7 @@ import {
   getPlaylist,
   goToNext,
   goToPrev,
+  moveInPlaylist,
   playAtIndex,
   pushToPlaylist,
   send,
@@ -92,8 +93,7 @@ program
   .description("Start playback")
   .action(
     wrapped(async function ([arg] = []) {
-      const index = arg && parseInt(arg);
-      if (arg && isNaN(index)) throw new Error(`expected number, got "${arg}"`);
+      const index = safeParseInt(arg);
       if (index) await playAtIndex(index);
       await setPause(false);
     }),
@@ -129,7 +129,26 @@ program
   .description("Go to previous file in playlist")
   .action(wrapped(goToPrev));
 
+program
+  .command("move")
+  .alias("mv")
+  .argument("<from>")
+  .argument("<to>")
+  .description("Move file in playlist")
+  .action(
+    wrapped(async function (from: string, to: string) {
+      await moveInPlaylist(safeParseInt(from)!, safeParseInt(to)!);
+    }),
+  );
+
 program.parse();
+
+function safeParseInt(arg?: string) {
+  if (!arg) return;
+  const int = parseInt(arg);
+  if (arg && isNaN(int)) throw new Error(`expected number, got "${arg}"`);
+  return int;
+}
 
 function print(value: any) {
   if (!value) return;
