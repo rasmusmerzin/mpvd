@@ -6,6 +6,8 @@ MPV music player daemon controller CLI.
 npm i -g mpvd
 ```
 
+> Note: `mpv` is required.
+
 Print usage info.
 
 ```sh
@@ -14,7 +16,7 @@ mpvd help
 
 # mpvctl
 
-Requires `fzf` and `bat`.
+Legacy bash script. Requires `fzf` and `bat`.
 
 ```sh
 mpvctl help
