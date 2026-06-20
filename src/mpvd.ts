@@ -3,6 +3,8 @@ import { Command, program } from "commander";
 import {
   getPause,
   getPlaylist,
+  goToNext,
+  goToPrev,
   playAtIndex,
   pushToPlaylist,
   send,
@@ -11,32 +13,6 @@ import {
 import { spawnDaemon, killDaemon, printEnv, getDaemonPID } from "./env.js";
 
 program.name("mpvd").description("MPV daemon control").version(pkg.version);
-
-program
-  .command("env")
-  .description("Print environmemnt")
-  .action(() => printEnv());
-
-program
-  .command("send")
-  .description("Send IPC command")
-  .arguments("<cmd...>")
-  .action(
-    wrapped(async function (args: string[]) {
-      print(await send(...args));
-    }),
-  );
-
-program
-  .command("pid")
-  .description("Print mpv instance PID")
-  .action(
-    wrapped(async function () {
-      const pid = await getDaemonPID();
-      if (pid == null) process.exit(1);
-      console.log(pid);
-    }),
-  );
 
 program
   .command("init")
@@ -55,6 +31,32 @@ program
     wrapped(async function () {
       const success = await killDaemon();
       process.exit(success ? 0 : 1);
+    }),
+  );
+
+program
+  .command("pid")
+  .description("Print mpv instance PID")
+  .action(
+    wrapped(async function () {
+      const pid = await getDaemonPID();
+      if (pid == null) process.exit(1);
+      console.log(pid);
+    }),
+  );
+
+program
+  .command("env")
+  .description("Print environmemnt")
+  .action(() => printEnv());
+
+program
+  .command("send")
+  .description("Send IPC command")
+  .arguments("<cmd...>")
+  .action(
+    wrapped(async function (args: string[]) {
+      print(await send(...args));
     }),
   );
 
@@ -109,11 +111,23 @@ program
 program
   .command("push")
   .arguments("<files...>")
+  .description("Push files to playlist")
   .action(
     wrapped(async function (files: string[]) {
       for (const file of files) await pushToPlaylist(file);
     }),
   );
+
+program
+  .command("next")
+  .description("Go to next file in playlist")
+  .action(wrapped(goToNext));
+
+program
+  .command("prev")
+  .alias("previous")
+  .description("Go to previous file in playlist")
+  .action(wrapped(goToPrev));
 
 program.parse();
 

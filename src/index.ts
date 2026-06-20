@@ -43,3 +43,11 @@ export async function playAtIndex(index: number) {
 export async function pushToPlaylist(file: string) {
   await send("loadfile", path.resolve(file), "append-play");
 }
+
+export async function goToNext() {
+  await send("playlist-next");
+}
+
+export async function goToPrev() {
+  await send("playlist-prev");
+}
