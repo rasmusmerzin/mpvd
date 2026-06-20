@@ -1,15 +1,16 @@
 import pkg from "../package.json" with { type: "json" };
 import { Command, program } from "commander";
-import { getPause, getPlaylist, playAtIndex, send, setPause } from "./index.js";
+import {
+  getPause,
+  getPlaylist,
+  playAtIndex,
+  pushToPlaylist,
+  send,
+  setPause,
+} from "./index.js";
 import { spawnDaemon, killDaemon, printEnv, getDaemonPID } from "./env.js";
 
-program
-  .name("mpvd")
-  .description("MPV daemon control")
-  .version(pkg.version)
-  .action(function () {
-    console.log(`mpvd ${pkg.version}`);
-  });
+program.name("mpvd").description("MPV daemon control").version(pkg.version);
 
 program
   .command("env")
@@ -102,6 +103,15 @@ program
   .action(
     wrapped(async function () {
       await setPause(true);
+    }),
+  );
+
+program
+  .command("push")
+  .arguments("<files...>")
+  .action(
+    wrapped(async function (files: string[]) {
+      for (const file of files) await pushToPlaylist(file);
     }),
   );
 

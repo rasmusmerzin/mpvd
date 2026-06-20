@@ -1,5 +1,6 @@
 import { createConnection } from "node:net";
 import { MPVD_SOCK } from "./env.js";
+import * as path from "node:path";
 
 export interface PlaylistItem {
   filename: string;
@@ -37,4 +38,8 @@ export async function setPause(paused: boolean) {
 
 export async function playAtIndex(index: number) {
   await send("playlist-play-index", index - 1);
+}
+
+export async function pushToPlaylist(file: string) {
+  await send("loadfile", path.resolve(file), "append-play");
 }
