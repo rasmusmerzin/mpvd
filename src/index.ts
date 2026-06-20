@@ -27,6 +27,26 @@ export async function getPlaylist(): Promise<PlaylistItem[]> {
   return response.data;
 }
 
+export async function getDuration(): Promise<number> {
+  const response = await send("get_property", "duration");
+  return response.data;
+}
+
+export async function getTime(): Promise<number> {
+  const response = await send("get_property", "time-pos");
+  return response.data;
+}
+
+export async function getTimeString(): Promise<string> {
+  const posSecs = (await getTime()) | 0;
+  const durSecs = (await getDuration()) | 0;
+  const mm = String((posSecs / 60) | 0).padStart(2, "0");
+  const ss = String(posSecs % 60).padStart(2, "0");
+  const MM = String((durSecs / 60) | 0).padStart(2, "0");
+  const SS = String(durSecs % 60).padStart(2, "0");
+  return `${mm}:${ss}/${MM}:${SS}`;
+}
+
 export async function getPause(): Promise<boolean> {
   const response = await send("get_property", "pause");
   return response.data;

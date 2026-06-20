@@ -1,8 +1,11 @@
 import pkg from "../package.json" with { type: "json" };
 import { Command, program } from "commander";
 import {
+  getDuration,
   getPause,
   getPlaylist,
+  getTime,
+  getTimeString,
   goToNext,
   goToPrev,
   moveInPlaylist,
@@ -43,7 +46,7 @@ program
     wrapped(async function () {
       const pid = await getDaemonPID();
       if (pid == null) process.exit(1);
-      console.log(pid);
+      print(pid);
     }),
   );
 
@@ -56,7 +59,7 @@ program
   .command("list")
   .alias("ls")
   .description("List current playlist")
-  .option("-p, --plain")
+  .option("-p, --plain", "Print without decorations")
   .action(
     wrapped(async function (_args, cmd: Command) {
       const { plain } = cmd.opts();
@@ -75,6 +78,22 @@ program
         })
         .join("\n");
       print(out);
+    }),
+  );
+
+program
+  .command("time")
+  .description("Print current track time position")
+  .option("-s, --seconds", "Print seconds")
+  .option("-d, --duration", "Print duration")
+  .action(
+    wrapped(async function (_args, cmd: Command) {
+      const { seconds, duration } = cmd.opts();
+      if (!seconds && !duration) print(await getTimeString());
+      else if (seconds && !duration) print(await getTime());
+      else if (!seconds && duration) print(await getDuration());
+      else if (seconds && duration)
+        print(`${await getTime()}/${await getDuration()}`);
     }),
   );
 
@@ -165,7 +184,8 @@ function safeParseInt(arg?: string) {
 function print(value: any) {
   if (!value) return;
   if (typeof value === "string") console.log(value);
-  else console.log(JSON.stringify(value));
+  else if (typeof value === "object") console.log(JSON.stringify(value));
+  else console.log(String(value));
 }
 
 function wrapped<T, A extends any[]>(
