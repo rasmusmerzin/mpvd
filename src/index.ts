@@ -58,3 +58,7 @@ export async function moveInPlaylist(from: number, to: number) {
   else if (from < to) await send("playlist-move", from - 1, to);
   else if (from > to) await send("playlist-move", from - 1, to - 1);
 }
+
+export async function removeFromPlaylist(index: number) {
+  await send("playlist-remove", index - 1);
+}

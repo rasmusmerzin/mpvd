@@ -8,6 +8,7 @@ import {
   moveInPlaylist,
   playAtIndex,
   pushToPlaylist,
+  removeFromPlaylist,
   send,
   setPause,
 } from "./index.js";
@@ -50,16 +51,6 @@ program
   .command("env")
   .description("Print environmemnt")
   .action(() => printEnv());
-
-program
-  .command("send")
-  .description("Send IPC command")
-  .arguments("<cmd...>")
-  .action(
-    wrapped(async function (args: string[]) {
-      print(await send(...args));
-    }),
-  );
 
 program
   .command("list")
@@ -138,6 +129,27 @@ program
   .action(
     wrapped(async function (from: string, to: string) {
       await moveInPlaylist(safeParseInt(from)!, safeParseInt(to)!);
+    }),
+  );
+
+program
+  .command("remove")
+  .alias("rm")
+  .argument("<index>")
+  .description("Remove file at index from playlist")
+  .action(
+    wrapped(async function (index: string) {
+      await removeFromPlaylist(safeParseInt(index)!);
+    }),
+  );
+
+program
+  .command("send")
+  .arguments("<cmd...>")
+  .description("Send IPC command")
+  .action(
+    wrapped(async function (args: string[]) {
+      print(await send(...args));
     }),
   );
 
