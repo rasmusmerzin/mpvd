@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { readFile, rm, stat, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 
 export const MPVD_SOCK =
   process.env.MPVD_SOCK ||
@@ -19,7 +20,7 @@ export async function spawnDaemon(): Promise<boolean> {
     "mpv",
     ["--idle", "--no-video", `--input-ipc-server=${MPVD_SOCK}`],
     {
-      cwd: process.env.HOME,
+      cwd: homedir(),
       detached: true,
       stdio: ["ignore", "ignore", "ignore"],
     },

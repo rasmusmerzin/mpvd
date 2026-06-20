@@ -1,5 +1,7 @@
 import pkg from "../package.json" with { type: "json" };
+import React from "react";
 import { Command, program } from "commander";
+import { Instance, render } from "ink";
 import {
   getDuration,
   getPause,
@@ -16,6 +18,13 @@ import {
   setPause,
 } from "./index.js";
 import { spawnDaemon, killDaemon, printEnv, getDaemonPID } from "./env.js";
+import { Picker } from "./Picker.js";
+
+let INK_INSTANCE: Instance | null = null;
+
+export function unmount() {
+  INK_INSTANCE?.unmount();
+}
 
 program.name("mpvd").description("MPV daemon control").version(pkg.version);
 
@@ -127,6 +136,13 @@ program
       for (const file of files) await pushToPlaylist(file);
     }),
   );
+
+program
+  .command("pick")
+  .description("Pick files to playlist")
+  .action(function () {
+    INK_INSTANCE = render(<Picker />, { alternateScreen: true });
+  });
 
 program
   .command("next")
