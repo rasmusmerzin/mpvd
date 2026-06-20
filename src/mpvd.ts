@@ -3,7 +3,13 @@ import { Command, program } from "commander";
 import { getPause, getPlaylist, playAtIndex, send, setPause } from "./index.js";
 import { spawnDaemon, killDaemon, printEnv, getDaemonPID } from "./env.js";
 
-program.name("mpvctl").description("MPV daemon control").version(pkg.version);
+program
+  .name("mpvd")
+  .description("MPV daemon control")
+  .version(pkg.version)
+  .action(function () {
+    console.log(`mpvd ${pkg.version}`);
+  });
 
 program
   .command("env")

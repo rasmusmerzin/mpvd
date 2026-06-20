@@ -3,16 +3,16 @@
 [[ -z $MPVD_SOCK ]] && export MPVD_SOCK="${XDG_RUNTIME_DIR:-$HOME}/mpvd.sock"
 [[ -z $MPVD_PID ]] && export MPVD_PID="${MPVD_SOCK%/*}/mpvd.pid"
 
-mpvd() {
-  mpvd-"${1:-init}" "${@:2}"
+mpvctl() {
+  mpvctl-"${1:-init}" "${@:2}"
 }
 
-mpvd-help() {
-  echo 'usage: mpvd [command=init] [args...]'
+mpvctl-help() {
+  echo 'Usage: mpvctl [command=init] [args...]'
   echo
-  echo 'commands:'
+  echo 'Commands:'
   echo '  help                  Print this help message'
-  echo '  version               Print mpvd and mpv versions'
+  echo '  version               Print mpvctl and mpv versions'
   echo '  init                  Spawn mpv process or list running one'
   echo '  stat                  List running mpv process'
   echo '  kill                  Kill running mpv process'
@@ -29,33 +29,33 @@ mpvd-help() {
   echo '  position              Print playlist position of current track'
   echo '  state                 Print playing/paused state'
   echo
-  echo 'internal commands:'
+  echo 'Internal Commands:'
   echo '  send <cmd> [args...]  Send IPC command'
   echo '  mesg <cmd> [args...]  Print IPC JSON message'
   echo '  sock                  Print IPC socket path'
 }
-mpvd--h() { mpvd-help; }
-mpvd---help() { mpvd-help; }
+mpvctl--h() { mpvctl-help; }
+mpvctl---help() { mpvctl-help; }
 
-mpvd-version() {
-  echo "mpvd v1.3.2"
+mpvctl-version() {
+  echo "mpvctl v1.0.0"
   mpv --version | head -n1 | cut -f1,2 -d' '
 }
-mpvd--V() { mpvd-version; }
-mpvd---version() { mpvd-version; }
+mpvctl--V() { mpvctl-version; }
+mpvctl---version() { mpvctl-version; }
 
-mpvd-init() {
-  if mpvd-stat; then return; fi
+mpvctl-init() {
+  if mpvctl-stat; then return; fi
   nohup "$(which mpv)" --idle --no-video --input-ipc-server="$MPVD_SOCK" >/dev/null 2>&1 &
   echo $! > "$MPVD_PID"
   sleep .1
-  mpvd-stat
+  mpvctl-stat
 }
 
-mpvd-stat() {
+mpvctl-stat() {
   [[ -f $MPVD_PID ]] && pgrep -aF "$MPVD_PID"
 }
-mpvd-kill() {
+mpvctl-kill() {
   local e=0
   [[ -f $MPVD_PID ]] && kill ${*:--9} "$(cat "$MPVD_PID")"
   if [[ $? != 0 ]]; then e=1; fi
@@ -64,63 +64,63 @@ mpvd-kill() {
   return $e
 }
 
-mpvd-push() {
-  mpvd-init >/dev/null
-  mpvd-send loadfile "$1" append-play
-  shift; if [[ $# -gt 0 ]]; then mpvd-push "$@"; fi
+mpvctl-push() {
+  mpvctl-init >/dev/null
+  mpvctl-send loadfile "$1" append-play
+  shift; if [[ $# -gt 0 ]]; then mpvctl-push "$@"; fi
 }
-mpvd-play() {
-  if [[ -n $1 ]]; then mpvd-send playlist-play-index $(($1-1)); fi
-  mpvd-send set_property_string pause no
+mpvctl-play() {
+  if [[ -n $1 ]]; then mpvctl-send playlist-play-index $(($1-1)); fi
+  mpvctl-send set_property_string pause no
 }
-mpvd-stop() { mpvd-send set_property_string pause yes; }
-mpvd-next() { mpvd-send playlist-next; }
-mpvd-previous() { mpvd-send playlist-prev; }
-mpvd-prev() { mpvd-previous; }
-mpvd-move() {
+mpvctl-stop() { mpvctl-send set_property_string pause yes; }
+mpvctl-next() { mpvctl-send playlist-next; }
+mpvctl-previous() { mpvctl-send playlist-prev; }
+mpvctl-prev() { mpvctl-previous; }
+mpvctl-move() {
   if [[ $1 == $2 ]]
   then return
   elif [[ $1 -lt $2 ]]
-  then mpvd-send playlist-move $(($1-1)) $2
+  then mpvctl-send playlist-move $(($1-1)) $2
   elif [[ $1 -gt $2 ]]
-  then mpvd-send playlist-move $(($1-1)) $(($2-1))
+  then mpvctl-send playlist-move $(($1-1)) $(($2-1))
   fi
 }
-mpvd-mv() { mpvd-move "$@"; }
-mpvd-remove() { mpvd-send playlist-remove $(($1-1)); }
-mpvd-rm() { mpvd-remove "$@"; }
+mpvctl-mv() { mpvctl-move "$@"; }
+mpvctl-remove() { mpvctl-send playlist-remove $(($1-1)); }
+mpvctl-rm() { mpvctl-remove "$@"; }
 
-mpvd-pick() {
-  mpvd-init >/dev/null
+mpvctl-pick() {
+  mpvctl-init >/dev/null
   local count=${1:-10}
   local select=$(find -L "$HOME/Music" -maxdepth 2 -iname \*.mp3 | sort -R | head -n "$count")
   echo "$select" \
     | sed "s|^$HOME/Music/||" \
     | fzf -m --no-input --height "$count" --layout reverse \
-    | while read -r f; do mpvd-push "$HOME/Music/$f"; done
+    | while read -r f; do mpvctl-push "$HOME/Music/$f"; done
 }
 
-mpvd-list() {
+mpvctl-list() {
   local f='(.filename | match("[^/]*$") | .string)'
   if [[ ! -t 1 ]]
-  then mpvd-send get_property playlist | jq -r ".data|map($f)[]"
+  then mpvctl-send get_property playlist | jq -r ".data|map($f)[]"
   else
     local hl_start='\u001b[32m'
     local hl_end='\u001b[m'
-    local playlist=$(mpvd-send get_property playlist)
-    local pause=$(mpvd-send get_property pause | jq .data)
+    local playlist=$(mpvctl-send get_property playlist)
+    local pause=$(mpvctl-send get_property pause | jq .data)
     local cursor=$([[ $pause = false ]] && echo \* || echo -)
     local b="if .current then \"$cursor $hl_start\" else \"  \" end"
     local e="if .current then \"$hl_end\" else \"\" end"
     echo "$playlist" | jq -r ".data|map($b+$f+$e)[]" | bat -n
   fi
 }
-mpvd-ls() { mpvd-list; }
+mpvctl-ls() { mpvctl-list; }
 
-mpvd-time() {
-  local pos=$(mpvd-send get_property time-pos | jq .data)
+mpvctl-time() {
+  local pos=$(mpvctl-send get_property time-pos | jq .data)
   local pos_secs=${pos%%.*}
-  local dur=$(mpvd-send get_property duration | jq .data)
+  local dur=$(mpvctl-send get_property duration | jq .data)
   local dur_secs=${dur%%.*}
   printf '%02d:%02d/%02d:%02d\n' \
     $((pos_secs/60)) $((pos_secs%60)) \
@@ -128,23 +128,23 @@ mpvd-time() {
     2>/dev/null
 }
 
-mpvd-position() {
-  local pos=$(mpvd-send get_property playlist-pos | jq .data)
+mpvctl-position() {
+  local pos=$(mpvctl-send get_property playlist-pos | jq .data)
   echo $((pos+1))
 }
-mpvd-pos() { mpvd-position; }
+mpvctl-pos() { mpvctl-position; }
 
-mpvd-state() {
-  local pause=$(mpvd-send get_property pause | jq .data)
+mpvctl-state() {
+  local pause=$(mpvctl-send get_property pause | jq .data)
   if [[ $pause == true ]]
   then echo paused
   else echo playing
   fi
 }
 
-mpvd-send() { mpvd-mesg "$@" | socat - "$MPVD_SOCK"; }
+mpvctl-send() { mpvctl-mesg "$@" | socat - "$MPVD_SOCK"; }
 
-mpvd-mesg() {
+mpvctl-mesg() {
   local v; printf '{"command":['
   while v=$1; shift; do
   if [[ $v =~ ^[-+]?[0-9]+(\.[0-9]+)?$ ]]
@@ -153,10 +153,10 @@ mpvd-mesg() {
   echo ']}'
 }
 
-mpvd-sock() {
+mpvctl-sock() {
   echo "$MPVD_SOCK"
   [[ -e $MPVD_SOCK ]]
   return $?
 }
 
-[[ $0 == *sh* ]] || mpvd "$@"
+[[ $0 == *sh* ]] || mpvctl "$@"

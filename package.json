@@ -1,7 +1,7 @@
 {
-  "name": "@merzin/mpvctl",
-  "version": "0.3.0",
-  "description": "MPV daemon control",
+  "name": "mpvd",
+  "version": "0.1.0",
+  "description": "MPV music player daemon",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -16,8 +16,8 @@
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "bin": {
-    "mpvd": "bin/mpvd",
-    "mpvctl": "bin/mpvctl.js"
+    "mpvctl": "bin/mpvctl",
+    "mpvd": "bin/mpvd.js"
   },
   "files": [
     "lib",
