@@ -28,6 +28,7 @@ mpvctl-help() {
   echo '  time                  Print time position of current track'
   echo '  position              Print playlist position of current track'
   echo '  state                 Print playing/paused state'
+  echo '  info                  Print status info'
   echo
   echo 'Internal Commands:'
   echo '  send <cmd> [args...]  Send IPC command'
@@ -38,7 +39,7 @@ mpvctl--h() { mpvctl-help; }
 mpvctl---help() { mpvctl-help; }
 
 mpvctl-version() {
-  echo "mpvctl v1.0.0"
+  echo "mpvctl v1.1.0"
   mpv --version | head -n1 | cut -f1,2 -d' '
 }
 mpvctl--V() { mpvctl-version; }
@@ -141,6 +142,12 @@ mpvctl-state() {
   else echo playing
   fi
 }
+
+mpvctl-info() {
+  local track=$(mpvd list | grep '[ 0-9]\{4\} [-*] ' | cut -b8-)
+  printf '%4d %-8s %s %s\n' "$(mpvctl pos)" "$(mpvctl state)" "$(mpvctl time)" "$track";
+}
+mpvctl-status() { mpvctl-info; }
 
 mpvctl-send() { mpvctl-mesg "$@" | socat - "$MPVD_SOCK"; }
 
