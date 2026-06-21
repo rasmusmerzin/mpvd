@@ -37,7 +37,7 @@ export function Picker() {
   }
   function changeCursor(pos: number) {
     const minCursor = offset;
-    const maxCursor = offset + listHeight - 1;
+    const maxCursor = Math.min(offset + listHeight - 1, files.length);
     setCursor((cursor = Math.max(minCursor, Math.min(maxCursor, pos))));
   }
   useEffect(() => {
@@ -47,19 +47,33 @@ export function Picker() {
     if (key.downArrow || (input === "e" && key.ctrl)) changeOffset(offset + 1);
     else if (key.upArrow || (input === "y" && key.ctrl))
       changeOffset(offset - 1);
-    else if (input === "d" && key.ctrl) changeOffset((offset + rows / 2) | 0);
-    else if (input === "u" && key.ctrl) changeOffset(offset - ((rows / 2) | 0));
-    else if (input === "r") setFiles(shuffle(files));
-    else if (input === "q") process.exit();
-    else if (input === "j") changeCursor(cursor + 1);
-    else if (input === "k") changeCursor(cursor - 1);
-    else if (input === "g") {
+    else if (input === "d" && key.ctrl) {
+      const delta = (rows / 2) | 0;
+      const savedCursor = cursor;
+      changeOffset(offset + delta);
+      changeCursor(savedCursor + delta);
+    } else if (input === "u" && key.ctrl) {
+      const delta = -((rows / 2) | 0);
+      const savedCursor = cursor;
+      changeOffset(offset + delta);
+      changeCursor(savedCursor + delta);
+    } else if (input === "r") setFiles(shuffle(files));
+    else if (input === "q") unmount();
+    else if (input === "H") changeCursor(offset);
+    else if (input === "L") changeCursor(offset + listHeight);
+    else if (input === "j" || (input === "n" && key.ctrl)) {
+      if (cursor + 1 >= offset + listHeight) changeOffset(offset + 1);
+      changeCursor(cursor + 1);
+    } else if (input === "k" || (input === "p" && key.ctrl)) {
+      if (cursor - 1 < offset) changeOffset(offset - 1);
+      changeCursor(cursor - 1);
+    } else if (input === "g") {
       changeOffset(0);
       changeCursor(0);
     } else if (input === "G") {
       changeOffset(maxOffset);
       changeCursor(files.length - 1);
-    } else if (input === " ") {
+    } else if (input === " " || key.tab) {
       if (selected.has(files[cursor])) selected.delete(files[cursor]);
       else selected.add(files[cursor]);
       setSelected(new Set(selected));

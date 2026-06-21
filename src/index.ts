@@ -78,7 +78,6 @@ export async function goToPrev() {
 }
 
 export async function moveInPlaylist(from: number, to: number) {
-  console.log({ from, to });
   if (from === to) return;
   else if (from < to) await send("playlist-move", from - 1, to);
   else if (from > to) await send("playlist-move", from - 1, to - 1);
