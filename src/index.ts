@@ -27,6 +27,11 @@ export async function getPlaylist(): Promise<PlaylistItem[]> {
   return response.data;
 }
 
+export async function getPosition(): Promise<number> {
+  const response = await send("get_property", "playlist-pos");
+  return response.data + 1;
+}
+
 export async function getDuration(): Promise<number> {
   const response = await send("get_property", "duration");
   return response.data;

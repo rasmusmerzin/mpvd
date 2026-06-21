@@ -6,6 +6,7 @@ import {
   getDuration,
   getPause,
   getPlaylist,
+  getPosition,
   getTime,
   getTimeString,
   goToNext,
@@ -69,9 +70,10 @@ program
   .alias("ls")
   .description("List current playlist")
   .option("-p, --plain", "Print without decorations")
+  .option("-f, --full", "Print with absolute paths")
   .action(
     wrapped(async function (_args, cmd: Command) {
-      const { plain } = cmd.opts();
+      const { plain, full } = cmd.opts();
       const pause = await getPause();
       const playlist = await getPlaylist();
       const out = playlist
@@ -79,7 +81,7 @@ program
           let id = String(i + 1).padStart(4, " ");
           if (process.stdout.isTTY) id = `\x1b[2m${id}\x1b[m`;
           const cursor = current ? (pause ? "-" : "*") : " ";
-          let name = /[^\/]+$/.exec(filename)![0];
+          let name = full ? filename : /[^\/]+$/.exec(filename)![0];
           if (current && process.stdout.isTTY && !plain)
             name = `\x1b[32m${name}\x1b[m`;
           if (plain) return name;
@@ -87,6 +89,16 @@ program
         })
         .join("\n");
       print(out);
+    }),
+  );
+
+program
+  .command("position")
+  .alias("pos")
+  .description("Print playlist position of current track")
+  .action(
+    wrapped(async function () {
+      print(await getPosition());
     }),
   );
 
