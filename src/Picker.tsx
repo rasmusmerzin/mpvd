@@ -25,9 +25,10 @@ export function PickerLine({
 
 export function Picker() {
   const { columns, rows } = useTerminalSize();
-  const [files, setFiles] = useState<string[]>([]);
+  let [files, setFiles] = useState<string[]>([]);
   let [offset, setOffset] = useState(0);
   let [cursor, setCursor] = useState(0);
+  let [shuffled, setShuffled] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const listHeight = rows - 1;
   const maxOffset = files.length - listHeight;
@@ -40,13 +41,24 @@ export function Picker() {
     const maxCursor = Math.min(offset + listHeight - 1, files.length);
     setCursor((cursor = Math.max(minCursor, Math.min(maxCursor, pos))));
   }
+  async function updateFiles() {
+    const list = await find("~/Music", isMpvPlayableAudio);
+    setFiles((files = list));
+    const relative = cursor - offset;
+    changeOffset(0);
+    changeCursor(relative);
+  }
+  async function toggleShuffle(value = !shuffled) {
+    setShuffled((shuffled = value));
+    await updateFiles();
+    if (shuffled) setFiles((files = shuffle(files)));
+  }
   useEffect(() => {
-    find("~/Music", isMpvPlayableAudio).then(setFiles);
+    updateFiles();
   }, []);
   useInput((input, key) => {
-    if (key.downArrow || (input === "e" && key.ctrl)) changeOffset(offset + 1);
-    else if (key.upArrow || (input === "y" && key.ctrl))
-      changeOffset(offset - 1);
+    if (input === "e" && key.ctrl) changeOffset(offset + 1);
+    else if (input === "y" && key.ctrl) changeOffset(offset - 1);
     else if (input === "d" && key.ctrl) {
       const delta = (rows / 2) | 0;
       const savedCursor = cursor;
@@ -57,14 +69,15 @@ export function Picker() {
       const savedCursor = cursor;
       changeOffset(offset + delta);
       changeCursor(savedCursor + delta);
-    } else if (input === "r") setFiles(shuffle(files));
-    else if (input === "q") unmount();
+    } else if (input === "r") {
+      toggleShuffle();
+    } else if (input === "q") unmount();
     else if (input === "H") changeCursor(offset);
     else if (input === "L") changeCursor(offset + listHeight);
-    else if (input === "j" || (input === "n" && key.ctrl)) {
+    else if (key.downArrow || input === "j" || (input === "n" && key.ctrl)) {
       if (cursor + 1 >= offset + listHeight) changeOffset(offset + 1);
       changeCursor(cursor + 1);
-    } else if (input === "k" || (input === "p" && key.ctrl)) {
+    } else if (key.upArrow || input === "k" || (input === "p" && key.ctrl)) {
       if (cursor - 1 < offset) changeOffset(offset - 1);
       changeCursor(cursor - 1);
     } else if (input === "g") {
