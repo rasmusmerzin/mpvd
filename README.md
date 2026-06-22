@@ -47,9 +47,10 @@ a Unix socket at `$MPVD_SOCK` (defaults to `$XDG_RUNTIME_DIR/mpvd.sock` or
 
 ### Info
 
-| Command     | Description                                                                                |
-| ----------- | ------------------------------------------------------------------------------------------ |
-| `mpvd time` | Print current time position (`--seconds` for raw seconds, `--duration` for total duration) |
+| Command      | Description                                                                                |
+| ------------ | ------------------------------------------------------------------------------------------ |
+| `mpvd time`  | Print current time position (`--seconds` for raw seconds, `--duration` for total duration) |
+| `mpvd state` | Print `paused` or `playing`                                                                |
 
 ### Raw IPC
 

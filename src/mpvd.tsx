@@ -119,6 +119,16 @@ program
   );
 
 program
+  .command("state")
+  .description("Print playing/paused state")
+  .action(
+    wrapped(async function () {
+      const pause = await getPause();
+      print(pause ? "paused" : "playing");
+    }),
+  );
+
+program
   .command("play")
   .argument("[index]", "Playlist index to play at")
   .description("Start playback")
