@@ -153,7 +153,10 @@ program
   .command("pick")
   .description("Pick files to playlist")
   .action(function () {
-    INK_INSTANCE = render(<Picker />, { alternateScreen: true });
+    INK_INSTANCE = render(<Picker />, {
+      alternateScreen: true,
+      exitOnCtrlC: false,
+    });
   });
 
 program

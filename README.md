@@ -16,7 +16,7 @@ mpvd help
 
 # mpvctl
 
-Requires `socat`, `jq`, `fzf` and `bat`.
+Legacy bash script. Requires `socat`, `jq`, `fzf` and `bat`.
 
 ```sh
 mpvctl help

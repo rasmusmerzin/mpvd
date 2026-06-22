@@ -1,35 +1,37 @@
 import React, { useEffect, useState } from "react";
-import { Text, useInput } from "ink";
+import { Key, Text, useInput } from "ink";
 import * as path from "node:path";
 import { useTerminalSize } from "./useTerminalSize.js";
 import { find, isMpvPlayableAudio } from "./find.js";
 import { shuffle } from "./shuffle.js";
 import { unmount } from "./mpvd.js";
 import { pushToPlaylist } from "./index.js";
+import { Input } from "./Input.js";
 
 export function PickerLine({
   selected,
   hover,
-  columns,
   file,
 }: {
   selected: boolean;
   hover: boolean;
-  columns: number;
   file: string;
 }) {
+  const { columns } = useTerminalSize();
   const prefix = selected ? "* " : "  ";
   const full = prefix + path.basename(file).slice(0, columns - 2);
   return <Text inverse={hover}>{full.padEnd(columns, " ")}</Text>;
 }
 
 export function Picker() {
-  const { columns, rows } = useTerminalSize();
+  const { rows } = useTerminalSize();
   let [files, setFiles] = useState<string[]>([]);
   let [offset, setOffset] = useState(0);
   let [cursor, setCursor] = useState(0);
   let [shuffled, setShuffled] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [mode, setMode] = useState<"main" | "search">("main");
+  const [search, setSearch] = useState("");
   const listHeight = rows - 1;
   const maxOffset = files.length - listHeight;
   function changeOffset(update: number) {
@@ -53,10 +55,7 @@ export function Picker() {
     await updateFiles();
     if (shuffled) setFiles((files = shuffle(files)));
   }
-  useEffect(() => {
-    updateFiles();
-  }, []);
-  useInput((input, key) => {
+  function onInput(input: string, key: Key) {
     if (input === "e" && key.ctrl) changeOffset(offset + 1);
     else if (input === "y" && key.ctrl) changeOffset(offset - 1);
     else if (input === "d" && key.ctrl) {
@@ -71,7 +70,8 @@ export function Picker() {
       changeCursor(savedCursor + delta);
     } else if (input === "r") {
       toggleShuffle();
-    } else if (input === "q") unmount();
+    } else if (key.escape || input === "q" || (input === "c" && key.ctrl))
+      unmount();
     else if (input === "H") changeCursor(offset);
     else if (input === "L") changeCursor(offset + listHeight);
     else if (key.downArrow || input === "j" || (input === "n" && key.ctrl)) {
@@ -98,8 +98,21 @@ export function Picker() {
           console.log(file);
         }),
       );
+    } else if (input === "/") {
+      setMode("search");
     }
-  });
+  }
+  function onSearchCancel() {
+    setMode("main");
+  }
+  function onSearchSubmit(text: string) {
+    setSearch(text);
+    setMode("main");
+  }
+  useEffect(() => {
+    updateFiles();
+  }, []);
+  useInput(onInput, { isActive: mode === "main" });
   return (
     <>
       {files.slice(offset, offset + listHeight).map((file, i) => (
@@ -108,9 +121,13 @@ export function Picker() {
           file={file}
           selected={selected.has(file)}
           hover={cursor === i + offset}
-          columns={columns}
         />
       ))}
+      {mode === "search" ? (
+        <Input prefix="/" onCancel={onSearchCancel} onSubmit={onSearchSubmit} />
+      ) : (
+        search && <Text>/{search}</Text>
+      )}
     </>
   );
 }
