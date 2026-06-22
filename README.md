@@ -5,7 +5,7 @@ MPV music player daemon controller CLI.
 ## Install
 
 ```sh
-npm i -g mpvd
+npm i -g @merzin/mpvd
 ```
 
 > **Note:** `mpv` must be installed on your system.

@@ -1,5 +1,5 @@
 {
-  "name": "mpvd",
+  "name": "@merzin/mpvd",
   "version": "0.1.0",
   "description": "MPV music player daemon",
   "license": "MIT",
