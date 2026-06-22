@@ -28,26 +28,31 @@ export function Input({
     const right = text.slice(position);
     setText((text = left + value + right));
     changePosition(position + value.length);
+    onChange?.(text);
   }
   function deleteCharBackward() {
     const left = text.slice(0, position - 1);
     const right = text.slice(position);
     setText((text = left + right));
     changePosition(position - 1);
+    onChange?.(text);
   }
   function deleteCharForward() {
     const left = text.slice(0, position);
     const right = text.slice(position + 1);
     setText((text = left + right));
+    onChange?.(text);
   }
   function deleteBackward() {
     const right = text.slice(position);
     setText((text = right));
     changePosition(0);
+    onChange?.(text);
   }
   function deleteForward() {
     const left = text.slice(0, position);
     setText((text = left));
+    onChange?.(text);
   }
   function deleteWordBackward() {
     const left = text
@@ -56,11 +61,11 @@ export function Input({
       .replace(/[^\s]+$/, "");
     const right = text.slice(position);
     setText((text = left + right));
+    onChange?.(text);
   }
   function onInput(input: string, key: Key) {
     if (!key.ctrl && input && !key.return) {
       insertText(input);
-      onChange?.(text);
     } else if (key.return) {
       onSubmit?.(text);
     } else if (key.escape || input === "c") {
@@ -69,6 +74,10 @@ export function Input({
       changePosition(position - 1);
     } else if (key.rightArrow || input === "f") {
       changePosition(position + 1);
+    } else if (input === "a") {
+      changePosition(0);
+    } else if (input === "e") {
+      changePosition(maxLength);
     } else if (key.backspace || input === "h") {
       deleteCharBackward();
     } else if (key.delete || input === "d") {
@@ -79,10 +88,6 @@ export function Input({
       deleteForward();
     } else if (input === "w") {
       deleteWordBackward();
-    } else if (input === "a") {
-      changePosition(0);
-    } else if (input === "e") {
-      changePosition(maxLength);
     }
   }
   useInput(onInput, { isActive });

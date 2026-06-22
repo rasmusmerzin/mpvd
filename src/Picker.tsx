@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Key, Text, useInput } from "ink";
+import React, { useEffect, useMemo, useState } from "react";
+import { Box, Key, Text, useInput } from "ink";
 import * as path from "node:path";
 import { useTerminalSize } from "./useTerminalSize.js";
 import { find, isMpvPlayableAudio } from "./find.js";
@@ -32,15 +32,28 @@ export function Picker() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [mode, setMode] = useState<"main" | "search">("main");
   const [search, setSearch] = useState("");
+  const searchRegex = useMemo(
+    () => (search ? new RegExp(search) : null),
+    [search],
+  );
+  const filteredFiles = useMemo(() => {
+    setTimeout(changeOffset);
+    return searchRegex
+      ? files.filter((f) => searchRegex.test(path.basename(f)))
+      : files;
+  }, [files, searchRegex]);
   const listHeight = rows - 1;
-  const maxOffset = files.length - listHeight;
-  function changeOffset(update: number) {
+  const maxOffset = filteredFiles.length - listHeight;
+  function changeOffset(update = offset) {
     setOffset((offset = Math.max(0, Math.min(maxOffset, update))));
-    changeCursor(cursor);
+    changeCursor();
   }
-  function changeCursor(pos: number) {
+  function changeCursor(pos = cursor) {
     const minCursor = offset;
-    const maxCursor = Math.min(offset + listHeight - 1, files.length);
+    const maxCursor = Math.min(
+      offset + listHeight - 1,
+      filteredFiles.length - 1,
+    );
     setCursor((cursor = Math.max(minCursor, Math.min(maxCursor, pos))));
   }
   async function updateFiles() {
@@ -85,10 +98,11 @@ export function Picker() {
       changeCursor(0);
     } else if (input === "G") {
       changeOffset(maxOffset);
-      changeCursor(files.length - 1);
+      changeCursor(filteredFiles.length - 1);
     } else if (input === " " || key.tab) {
-      if (selected.has(files[cursor])) selected.delete(files[cursor]);
-      else selected.add(files[cursor]);
+      if (selected.has(filteredFiles[cursor]))
+        selected.delete(filteredFiles[cursor]);
+      else selected.add(filteredFiles[cursor]);
       setSelected(new Set(selected));
     } else if (key.return) {
       unmount();
@@ -103,11 +117,15 @@ export function Picker() {
     }
   }
   function onSearchCancel() {
+    setSearch("");
     setMode("main");
   }
   function onSearchSubmit(text: string) {
     setSearch(text);
     setMode("main");
+  }
+  function onSearchChange(text: string) {
+    setSearch(text);
   }
   useEffect(() => {
     updateFiles();
@@ -115,16 +133,23 @@ export function Picker() {
   useInput(onInput, { isActive: mode === "main" });
   return (
     <>
-      {files.slice(offset, offset + listHeight).map((file, i) => (
-        <PickerLine
-          key={file}
-          file={file}
-          selected={selected.has(file)}
-          hover={cursor === i + offset}
-        />
-      ))}
+      <Box height={listHeight} flexDirection="column">
+        {filteredFiles.slice(offset, offset + listHeight).map((file, i) => (
+          <PickerLine
+            key={file}
+            file={file}
+            selected={selected.has(file)}
+            hover={cursor === i + offset}
+          />
+        ))}
+      </Box>
       {mode === "search" ? (
-        <Input prefix="/" onCancel={onSearchCancel} onSubmit={onSearchSubmit} />
+        <Input
+          prefix="/"
+          onCancel={onSearchCancel}
+          onSubmit={onSearchSubmit}
+          onChange={onSearchChange}
+        />
       ) : (
         search && <Text>/{search}</Text>
       )}
