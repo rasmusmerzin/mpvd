@@ -129,6 +129,16 @@ program
   );
 
 program
+  .command("current")
+  .description("Print current track")
+  .action(
+    wrapped(async function () {
+      const playlist = await getPlaylist();
+      print(playlist.find((item) => item.current)?.filename);
+    }),
+  );
+
+program
   .command("play")
   .argument("[index]", "Playlist index to play at")
   .description("Start playback")
