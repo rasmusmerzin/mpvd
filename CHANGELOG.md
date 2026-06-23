@@ -8,12 +8,14 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-23
+
 ### Added
 
 - `state` subcommand
 - `current` subcommand
 
-## [0.1.0] - 2025-07-15
+## [0.1.0] - 2026-06-22
 
 ### Added
 
@@ -34,5 +36,6 @@ and this project adheres to
 - `remove`/`rm`
 - `send` subcommand
 
-[unreleased]: https://github.com/rasmusmerzin/mpvd/compare/v0.1.0...main
+[unreleased]: https://github.com/rasmusmerzin/mpvd/compare/v0.2.0...main
+[0.2.0]: https://github.com/rasmusmerzin/mpvd/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/rasmusmerzin/mpvd/tree/v0.1.0
