@@ -33,7 +33,7 @@ and this project adheres to
 - `next` subcommand
 - `prev`/`previous` subcommand
 - `move`/`mv` subcommand
-- `remove`/`rm`
+- `remove`/`rm` subcommand
 - `send` subcommand
 
 [unreleased]: https://github.com/rasmusmerzin/mpvd/compare/v0.2.0...main
