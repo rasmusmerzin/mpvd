@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-24
+
 ### Added
 
 - `list` subcommand `-i`/`--interactive` flag
@@ -47,7 +49,8 @@ and this project adheres to
 - `remove`/`rm` subcommand
 - `send` subcommand
 
-[unreleased]: https://github.com/rasmusmerzin/mpvd/compare/v0.3.0...main
-[0.2.0]: https://github.com/rasmusmerzin/mpvd/compare/v0.2.0...v0.3.0
+[unreleased]: https://github.com/rasmusmerzin/mpvd/compare/v0.4.0...main
+[0.4.0]: https://github.com/rasmusmerzin/mpvd/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/rasmusmerzin/mpvd/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/rasmusmerzin/mpvd/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/rasmusmerzin/mpvd/tree/v0.1.0
