@@ -21,7 +21,7 @@ import {
   setPause,
   startDaemon,
 } from "./index.js";
-import { mountPicker } from "./router.js";
+import { mountPicker, mountPlaylist } from "./router.js";
 import { printPlaylist } from "./playlist.js";
 
 program.name("mpvd").description("MPV daemon control").version(pkg.version);
@@ -71,10 +71,12 @@ program
   .description("List current playlist")
   .option("-p, --plain", "Print without decorations")
   .option("-f, --full", "Print with absolute paths")
+  .option("-i, --interactive", "Open playlist interactively")
   .action(
     wrapped(async function (_args, cmd: Command) {
-      const { plain, full } = cmd.opts();
-      print(await printPlaylist({ plain, full }));
+      const { plain, full, interactive } = cmd.opts();
+      if (interactive) mountPlaylist();
+      else print(await printPlaylist({ plain, full }));
     }),
   );
 
@@ -159,7 +161,7 @@ program
   .command("pick")
   .description("Pick files to playlist")
   .argument("[dirpath]", "Directory path", "~/Music")
-  .action(wrapped(mountPicker));
+  .action(wrapped((dirpath) => mountPicker({ dirpath })));
 
 program
   .command("next")

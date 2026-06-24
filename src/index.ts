@@ -114,6 +114,10 @@ export async function setPause(paused: boolean) {
   await send("set_property", "pause", paused);
 }
 
+export async function togglePause() {
+  await setPause(!(await getPause()));
+}
+
 export async function playAtIndex(index: number) {
   await send("playlist-play-index", index - 1);
 }

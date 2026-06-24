@@ -1,31 +1,12 @@
+import * as path from "node:path";
 import React, { useEffect, useMemo, useState } from "react";
 import { Box, Key, Text, useInput } from "ink";
-import * as path from "node:path";
-import { useTerminalSize } from "./useTerminalSize.js";
-import { find, isMpvPlayableAudio } from "./find.js";
-import { shuffle } from "./shuffle.js";
-import { pushToPlaylist } from "./index.js";
 import { Input } from "./Input.js";
+import { find, isMpvPlayableAudio } from "./find.js";
+import { pushToPlaylist } from "./index.js";
+import { shuffle } from "./shuffle.js";
 import { startDaemon } from "./index.js";
-
-export function PickerLine({
-  selected = false,
-  hover = false,
-  absolute = false,
-  file,
-}: {
-  selected?: boolean;
-  hover?: boolean;
-  absolute?: boolean;
-  file: string;
-}) {
-  const { columns } = useTerminalSize();
-  const prefix = selected ? "* " : "  ";
-  let name = file;
-  if (!absolute) name = path.basename(file);
-  const full = prefix + name.slice(0, columns - prefix.length);
-  return <Text inverse={hover}>{full.padEnd(columns, " ")}</Text>;
-}
+import { useTerminalSize } from "./useTerminalSize.js";
 
 export function Picker({
   dir = "~/Music",
@@ -70,19 +51,23 @@ export function Picker({
   async function updateFiles(dirname: string) {
     const list = await find(dirname, isMpvPlayableAudio);
     setFiles((files = list));
-    const relative = cursor - offset;
-    changeOffset(0);
-    changeCursor(relative);
   }
   async function toggleShuffle(value = !shuffled) {
     setShuffled((shuffled = value));
     await updateFiles(dir);
+    const relative = cursor - offset;
+    changeOffset(0);
+    changeCursor(relative);
     if (shuffled) setFiles((files = shuffle(files)));
   }
   async function onInput(input: string, key: Key) {
-    if (input === "e" && key.ctrl) changeOffset(offset + 1);
-    else if (input === "y" && key.ctrl) changeOffset(offset - 1);
-    else if (input === "d" && key.ctrl) {
+    if (key.escape || input === "q" || (input === "c" && key.ctrl)) {
+      unmount?.();
+    } else if (input === "e" && key.ctrl) {
+      changeOffset(offset + 1);
+    } else if (input === "y" && key.ctrl) {
+      changeOffset(offset - 1);
+    } else if (input === "d" && key.ctrl) {
       const delta = (rows / 2) | 0;
       const savedCursor = cursor;
       changeOffset(offset + delta);
@@ -92,15 +77,11 @@ export function Picker({
       const savedCursor = cursor;
       changeOffset(offset + delta);
       changeCursor(savedCursor + delta);
-    } else if (input === "r") {
-      toggleShuffle();
-    } else if (input === "f") {
-      setAbsolute(!absolute);
-    } else if (key.escape || input === "q" || (input === "c" && key.ctrl))
-      unmount?.();
-    else if (input === "H") changeCursor(offset);
-    else if (input === "L") changeCursor(offset + listHeight);
-    else if (key.downArrow || input === "j" || (input === "n" && key.ctrl)) {
+    } else if (input === "H") {
+      changeCursor(offset);
+    } else if (input === "L") {
+      changeCursor(offset + listHeight);
+    } else if (key.downArrow || input === "j" || (input === "n" && key.ctrl)) {
       if (cursor + 1 >= offset + listHeight) changeOffset(offset + 1);
       changeCursor(cursor + 1);
     } else if (key.upArrow || input === "k" || (input === "p" && key.ctrl)) {
@@ -112,6 +93,10 @@ export function Picker({
     } else if (input === "G") {
       changeOffset(maxOffset);
       changeCursor(filteredFiles.length - 1);
+    } else if (input === "f") {
+      setAbsolute(!absolute);
+    } else if (input === "r") {
+      toggleShuffle();
     } else if (input === " " || key.tab) {
       if (selected.has(filteredFiles[cursor]))
         selected.delete(filteredFiles[cursor]);
@@ -120,7 +105,7 @@ export function Picker({
     } else if (key.return) {
       unmount?.();
       const started = await startDaemon();
-      if (started) await new Promise((r) => setTimeout(r, 500));
+      if (started) await new Promise((r) => setTimeout(r, 200));
       await Promise.all(
         Array.from(selected, async (file) => {
           await pushToPlaylist(file);
@@ -170,5 +155,26 @@ export function Picker({
         search && <Text>/{search}</Text>
       )}
     </>
+  );
+}
+
+function PickerLine({
+  selected = false,
+  hover = false,
+  absolute = false,
+  file,
+}: {
+  selected?: boolean;
+  hover?: boolean;
+  absolute?: boolean;
+  file: string;
+}) {
+  const { columns } = useTerminalSize();
+  const prefix = selected ? "* " : "  ";
+  let name = file;
+  if (!absolute) name = path.basename(file);
+  const full = prefix + name;
+  return (
+    <Text inverse={hover}>{full.slice(0, columns).padEnd(columns, " ")}</Text>
   );
 }

@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- `list` subcommand `-i`/`--interactive` flag
+
 ## [0.3.0] - 2026-06-24
 
 ### Added
