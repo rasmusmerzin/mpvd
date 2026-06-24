@@ -12,6 +12,7 @@ and this project adheres to
 
 - `list` is now the default command; running `mpvd` with no arguments opens the
   interactive playlist
+- `list` shift arrow keybinds for moving playlist entries
 
 ## [0.4.0] - 2026-06-24
 
