@@ -14,12 +14,12 @@ npm i -g @merzin/mpvd
 
 ### Daemon lifecycle
 
-| Command     | Description                                |
-| ----------- | ------------------------------------------ |
-| `mpvd init` | Start an idle mpv daemon in the background |
-| `mpvd kill` | Kill the running mpv daemon                |
-| `mpvd pid`  | Print the daemon's PID                     |
-| `mpvd env`  | Print `MPVD_SOCK` and `MPVD_PID` paths     |
+| Command               | Description                                |
+| --------------------- | ------------------------------------------ |
+| `mpvd init` (`start`) | Start an idle mpv daemon in the background |
+| `mpvd kill`           | Kill the running mpv daemon                |
+| `mpvd pid`            | Print the daemon's PID                     |
+| `mpvd env`            | Print `MPVD_SOCK` and `MPVD_PID` paths     |
 
 The daemon runs as a headless mpv instance (`--idle --no-video`) and listens on
 a Unix socket at `$MPVD_SOCK` (defaults to `$XDG_RUNTIME_DIR/mpvd.sock` or
@@ -40,7 +40,7 @@ a Unix socket at `$MPVD_SOCK` (defaults to `$XDG_RUNTIME_DIR/mpvd.sock` or
 | ------------------------------ | ------------------------------------------------------------------------ |
 | `mpvd list` (`ls`)             | Show the playlist (`--plain` for raw names, `--full` for absolute paths) |
 | `mpvd push <files...>`         | Append one or more files to the playlist                                 |
-| `mpvd pick`                    | Interactive TUI to browse `~/Music` and pick files                       |
+| `mpvd pick [dirpath=~/Music]`  | Interactive TUI to browse and pick files                                 |
 | `mpvd move <from> <to>` (`mv`) | Move a track from one playlist index to another                          |
 | `mpvd remove <index>` (`rm`)   | Remove a track at the given playlist index                               |
 | `mpvd position` (`pos`)        | Print the playlist index of the current track (1-based)                  |
