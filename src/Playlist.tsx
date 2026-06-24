@@ -61,10 +61,18 @@ export function Playlist({ unmount }: { unmount?: () => any }) {
       changeCursor(offset);
     } else if (input === "L") {
       changeCursor(offset + listHeight);
-    } else if (key.downArrow || input === "j" || (input === "n" && key.ctrl)) {
+    } else if (
+      (key.downArrow && !key.shift) ||
+      input === "j" ||
+      (input === "n" && key.ctrl)
+    ) {
       if (cursor + 1 >= offset + listHeight) changeOffset(offset + 1);
       changeCursor(cursor + 1);
-    } else if (key.upArrow || input === "k" || (input === "p" && key.ctrl)) {
+    } else if (
+      (key.upArrow && !key.shift) ||
+      input === "k" ||
+      (input === "p" && key.ctrl)
+    ) {
       if (cursor - 1 < offset) changeOffset(offset - 1);
       changeCursor(cursor - 1);
     } else if (input === "g") {
@@ -77,13 +85,13 @@ export function Playlist({ unmount }: { unmount?: () => any }) {
       setAbsolute(!absolute);
     } else if (input === "p") {
       mountPicker({ unmount: mountPlaylist });
-    } else if (input === "J") {
+    } else if (input === "J" || (key.downArrow && key.shift)) {
       const position = cursor + 1;
       if (position >= playlist.length) return;
       await moveInPlaylist(position, position + 1);
       await update();
       changeCursor(cursor + 1);
-    } else if (input === "K") {
+    } else if (input === "K" || (key.upArrow && key.shift)) {
       const position = cursor + 1;
       if (position < 2) return;
       await moveInPlaylist(position, position - 1);
