@@ -4,8 +4,10 @@ import { Box, Key, Text, useInput } from "ink";
 import {
   getPause,
   getPlaylist,
+  moveInPlaylist,
   playAtIndex,
   PlaylistItem,
+  removeFromPlaylist,
   togglePause,
 } from "./index.js";
 import { useTerminalSize } from "./useTerminalSize.js";
@@ -70,6 +72,23 @@ export function Playlist({ unmount }: { unmount?: () => any }) {
       setAbsolute(!absolute);
     } else if (input === "p") {
       mountPicker({ unmount: mountPlaylist });
+    } else if (input === "J") {
+      const position = cursor + 1;
+      if (position >= playlist.length) return;
+      await moveInPlaylist(position, position + 1);
+      await updatePlaylist();
+      changeCursor(cursor + 1);
+    } else if (input === "K") {
+      const position = cursor + 1;
+      if (position < 2) return;
+      await moveInPlaylist(position, position - 1);
+      await updatePlaylist();
+      changeCursor(cursor - 1);
+    } else if (input === "D") {
+      const position = cursor + 1;
+      await removeFromPlaylist(position);
+      await updatePlaylist();
+      setTimeout(changeCursor);
     } else if (input === " ") {
       await togglePause();
       await updateState();
@@ -107,6 +126,11 @@ export function Playlist({ unmount }: { unmount?: () => any }) {
   return (
     <>
       <Box height={listHeight} flexDirection="column">
+        {!playlist.length && (
+          <Text italic dimColor>
+            Playlist is empty. Press p to pick files.
+          </Text>
+        )}
         {playlist
           .slice(offset, offset + listHeight)
           .map(({ filename, current, id }, i) => (
