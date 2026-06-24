@@ -128,7 +128,7 @@ real time.
 | `f`                | Toggle display between basename and absolute path   |
 | `J`                | Move track down in playlist                         |
 | `K`                | Move track up in playlist                           |
-| `D`                | Remove track from playlist                          |
+| `D`/`Delete`       | Remove track from playlist                          |
 | `p`                | Open picker to add files                            |
 | `q`/`Esc`/`Ctrl-c` | Exit interactive list                               |
 

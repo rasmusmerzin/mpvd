@@ -75,8 +75,11 @@ program
   .action(
     wrapped(async function (_args, cmd: Command) {
       const { plain, full, interactive } = cmd.opts();
-      if (interactive) mountPlaylist();
-      else print(await printPlaylist({ plain, full }));
+      if (interactive) {
+        const started = await startDaemon();
+        if (started) await new Promise((r) => setTimeout(r, 200));
+        mountPlaylist();
+      } else print(await printPlaylist({ plain, full }));
     }),
   );
 

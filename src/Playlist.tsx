@@ -2,11 +2,14 @@ import * as path from "node:path";
 import React, { useEffect, useMemo, useState } from "react";
 import { Box, Key, Text, useInput } from "ink";
 import {
+  PlaylistItem,
+  formatTimeString,
+  getDuration,
   getPause,
   getPlaylist,
+  getTime,
   moveInPlaylist,
   playAtIndex,
-  PlaylistItem,
   removeFromPlaylist,
   togglePause,
 } from "./index.js";
@@ -14,6 +17,8 @@ import { useTerminalSize } from "./useTerminalSize.js";
 import { mountPicker, mountPlaylist } from "./router.js";
 
 export function Playlist({ unmount }: { unmount?: () => any }) {
+  let [time, setTime] = useState(0);
+  let [duration, setDuration] = useState(0);
   let [paused, setPaused] = useState(false);
   let [playlist, setPlaylist] = useState<PlaylistItem[]>([]);
   let [offset, setOffset] = useState(0);
@@ -76,18 +81,18 @@ export function Playlist({ unmount }: { unmount?: () => any }) {
       const position = cursor + 1;
       if (position >= playlist.length) return;
       await moveInPlaylist(position, position + 1);
-      await updatePlaylist();
+      await update();
       changeCursor(cursor + 1);
     } else if (input === "K") {
       const position = cursor + 1;
       if (position < 2) return;
       await moveInPlaylist(position, position - 1);
-      await updatePlaylist();
+      await update();
       changeCursor(cursor - 1);
-    } else if (input === "D") {
+    } else if (input === "D" || key.delete) {
       const position = cursor + 1;
       await removeFromPlaylist(position);
-      await updatePlaylist();
+      await update();
       setTimeout(changeCursor);
     } else if (input === " ") {
       await togglePause();
@@ -96,7 +101,7 @@ export function Playlist({ unmount }: { unmount?: () => any }) {
       const position = cursor + 1;
       if (position === current) return togglePause();
       await playAtIndex(position);
-      await updatePlaylist();
+      await update();
     }
   }
   async function updatePlaylist() {
@@ -107,12 +112,22 @@ export function Playlist({ unmount }: { unmount?: () => any }) {
     const value = await getPause();
     if (typeof value === "boolean") setPaused((paused = value));
   }
+  async function updateTime() {
+    const value = await getTime();
+    if (typeof value === "number") setTime((time = value));
+  }
+  async function updateDuration() {
+    const value = await getDuration();
+    if (typeof value === "number") setDuration((duration = value));
+  }
   async function update() {
     await updatePlaylist();
     await updateState();
+    await updateTime();
+    await updateDuration();
   }
   useEffect(() => {
-    const interval = setInterval(update, 500);
+    const interval = setInterval(update, 200);
     update().then(() => {
       const position = playlist.findIndex(({ current }) => current);
       if (position >= 0) changeCursor(position);
@@ -145,24 +160,32 @@ export function Playlist({ unmount }: { unmount?: () => any }) {
             />
           ))}
       </Box>
+      <PlaylistStatusLine
+        file={playlist[current - 1]?.filename}
+        index={current}
+        absolute={absolute}
+        paused={paused}
+        time={time}
+        duration={duration}
+      />
     </>
   );
 }
 
 function PlaylistLine({
+  index = 0,
+  file = "",
   hover = false,
   paused = false,
   absolute = false,
   current = false,
-  file,
-  index,
 }: {
+  file: string;
+  index: number;
   hover?: boolean;
   paused?: boolean;
   absolute?: boolean;
   current?: boolean;
-  file: string;
-  index: number;
 }) {
   const { columns } = useTerminalSize();
   let name = file;
@@ -186,6 +209,37 @@ function PlaylistLine({
       <Text inverse={hover} color={current ? "green" : undefined}>
         {fixedName}
       </Text>
+    </Box>
+  );
+}
+
+function PlaylistStatusLine({
+  index,
+  file = "",
+  absolute = false,
+  paused = false,
+  time = 0,
+  duration = 0,
+}: {
+  index: number;
+  file?: string;
+  absolute?: boolean;
+  paused?: boolean;
+  time?: number;
+  duration?: number;
+}) {
+  const { columns } = useTerminalSize();
+  const indexStr = String(index).padStart(4, " ") + " ";
+  const timeStr = " " + formatTimeString(time, duration);
+  const cursor = paused ? "- " : "* ";
+  let name = file;
+  if (!absolute) name = path.basename(file);
+  const nameLength = columns - indexStr.length - cursor.length - timeStr.length;
+  const fixedName = name.slice(0, nameLength).padEnd(nameLength, " ");
+  const status = indexStr + cursor + fixedName + timeStr;
+  return (
+    <Box>
+      <Text>{status}</Text>
     </Box>
   );
 }

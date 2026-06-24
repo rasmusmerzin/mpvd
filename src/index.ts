@@ -96,8 +96,12 @@ export async function getTime(): Promise<number> {
 }
 
 export async function getTimeString(): Promise<string> {
-  const posSecs = (await getTime()) | 0;
-  const durSecs = (await getDuration()) | 0;
+  return formatTimeString(await getTime(), await getDuration());
+}
+
+export function formatTimeString(time: number, duration: number): string {
+  const posSecs = time | 0;
+  const durSecs = duration | 0;
   const mm = String((posSecs / 60) | 0).padStart(2, "0");
   const ss = String(posSecs % 60).padStart(2, "0");
   const MM = String((durSecs / 60) | 0).padStart(2, "0");
