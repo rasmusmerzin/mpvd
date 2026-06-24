@@ -13,7 +13,7 @@ export async function printEnv() {
   console.log(`MPVD_PID=${MPVD_PID}`);
 }
 
-export async function spawnDaemon(): Promise<boolean> {
+export async function startDaemon(): Promise<boolean> {
   const pidStat = await stat(MPVD_PID).catch(() => {});
   if (pidStat && pidStat.isFile()) return false;
   const child = spawn(

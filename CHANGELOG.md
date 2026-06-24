@@ -12,6 +12,7 @@ and this project adheres to
 
 ### Added
 
+- `start` alias
 - `state` subcommand
 - `current` subcommand
 

@@ -18,7 +18,7 @@ import {
   send,
   setPause,
 } from "./index.js";
-import { spawnDaemon, killDaemon, printEnv, getDaemonPID } from "./env.js";
+import { startDaemon, killDaemon, printEnv, getDaemonPID } from "./env.js";
 import { Picker } from "./Picker.js";
 
 let INK_INSTANCE: Instance | null = null;
@@ -31,10 +31,11 @@ program.name("mpvd").description("MPV daemon control").version(pkg.version);
 
 program
   .command("init")
+  .alias("start")
   .description("Initialize mpv instance")
   .action(
     wrapped(async function () {
-      const success = await spawnDaemon();
+      const success = await startDaemon();
       process.exit(success ? 0 : 1);
     }),
   );

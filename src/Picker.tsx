@@ -7,6 +7,7 @@ import { shuffle } from "./shuffle.js";
 import { unmount } from "./mpvd.js";
 import { pushToPlaylist } from "./index.js";
 import { Input } from "./Input.js";
+import { startDaemon } from "./env.js";
 
 export function PickerLine({
   selected,
@@ -68,7 +69,7 @@ export function Picker() {
     await updateFiles();
     if (shuffled) setFiles((files = shuffle(files)));
   }
-  function onInput(input: string, key: Key) {
+  async function onInput(input: string, key: Key) {
     if (input === "e" && key.ctrl) changeOffset(offset + 1);
     else if (input === "y" && key.ctrl) changeOffset(offset - 1);
     else if (input === "d" && key.ctrl) {
@@ -106,7 +107,9 @@ export function Picker() {
       setSelected(new Set(selected));
     } else if (key.return) {
       unmount();
-      Promise.all(
+      const started = await startDaemon();
+      if (started) await new Promise((r) => setTimeout(r, 500));
+      await Promise.all(
         Array.from(selected, async (file) => {
           await pushToPlaylist(file);
           console.log(file);
