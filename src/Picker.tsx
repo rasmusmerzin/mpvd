@@ -6,7 +6,7 @@ import { find, isMpvPlayableAudio } from "./find.js";
 import { shuffle } from "./shuffle.js";
 import { pushToPlaylist } from "./index.js";
 import { Input } from "./Input.js";
-import { startDaemon } from "./env.js";
+import { startDaemon } from "./index.js";
 
 export function PickerLine({
   selected = false,

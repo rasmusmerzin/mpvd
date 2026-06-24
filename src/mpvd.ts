@@ -1,6 +1,9 @@
 import pkg from "../package.json" with { type: "json" };
 import { Command, program } from "commander";
 import {
+  MPVD_PID,
+  MPVD_SOCK,
+  getDaemonPID,
   getDuration,
   getPause,
   getPlaylist,
@@ -9,14 +12,15 @@ import {
   getTimeString,
   goToNext,
   goToPrev,
+  killDaemon,
   moveInPlaylist,
   playAtIndex,
   pushToPlaylist,
   removeFromPlaylist,
   send,
   setPause,
+  startDaemon,
 } from "./index.js";
-import { startDaemon, killDaemon, printEnv, getDaemonPID } from "./env.js";
 import { mountPicker } from "./router.js";
 import { printPlaylist } from "./playlist.js";
 
@@ -57,7 +61,9 @@ program
 program
   .command("env")
   .description("Print environmemnt")
-  .action(() => printEnv());
+  .action(function () {
+    print(`MPVD_SOCK=${MPVD_SOCK}\nMPVD_PID=${MPVD_PID}`);
+  });
 
 program
   .command("list")
