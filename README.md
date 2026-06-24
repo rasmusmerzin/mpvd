@@ -1,6 +1,6 @@
 # mpvd
 
-MPV music player daemon controller CLI.
+MPV music player daemon controller CLI and TUI.
 
 ## Install
 

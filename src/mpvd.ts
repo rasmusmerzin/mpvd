@@ -66,7 +66,7 @@ program
   });
 
 program
-  .command("list")
+  .command("list", { isDefault: true })
   .alias("ls")
   .description("List current playlist")
   .option("-p, --plain", "Print without decorations")
@@ -74,9 +74,11 @@ program
   .option("-i, --interactive", "Open playlist interactively")
   .action(
     wrapped(async function (_args, cmd: Command) {
-      const { plain, full, interactive } = cmd.opts();
+      let { plain, full, interactive } = cmd.opts();
+      if (process.argv.length === 2) interactive = true;
       if (interactive) {
         const started = await startDaemon();
+        if (!process.stdout.isTTY) return;
         if (started) await new Promise((r) => setTimeout(r, 200));
         mountPlaylist();
       } else print(await printPlaylist({ plain, full }));

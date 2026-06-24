@@ -8,6 +8,11 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- `list` is now the default command; running `mpvd` with no arguments opens the
+  interactive playlist
+
 ## [0.4.0] - 2026-06-24
 
 ### Added
