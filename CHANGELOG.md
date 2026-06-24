@@ -12,6 +12,7 @@ and this project adheres to
 
 ### Added
 
+- `pick` directory path argument
 - `start` alias
 - `state` subcommand
 - `current` subcommand

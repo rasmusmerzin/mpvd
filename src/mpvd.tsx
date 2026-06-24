@@ -173,8 +173,9 @@ program
 program
   .command("pick")
   .description("Pick files to playlist")
-  .action(function () {
-    INK_INSTANCE = render(<Picker />, {
+  .argument("[dirpath]", "Directory path", "~/Music")
+  .action(function (dirpath: string) {
+    INK_INSTANCE = render(<Picker dir={dirpath} />, {
       alternateScreen: true,
       exitOnCtrlC: false,
     });

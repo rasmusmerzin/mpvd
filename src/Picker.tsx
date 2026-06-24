@@ -10,26 +10,31 @@ import { Input } from "./Input.js";
 import { startDaemon } from "./env.js";
 
 export function PickerLine({
-  selected,
-  hover,
+  selected = false,
+  hover = false,
+  absolute = false,
   file,
 }: {
-  selected: boolean;
-  hover: boolean;
+  selected?: boolean;
+  hover?: boolean;
+  absolute?: boolean;
   file: string;
 }) {
   const { columns } = useTerminalSize();
   const prefix = selected ? "* " : "  ";
-  const full = prefix + path.basename(file).slice(0, columns - 2);
+  let name = file;
+  if (!absolute) name = path.basename(file);
+  const full = prefix + name.slice(0, columns - prefix.length);
   return <Text inverse={hover}>{full.padEnd(columns, " ")}</Text>;
 }
 
-export function Picker() {
+export function Picker({ dir = "~/Music" }: { dir?: string }) {
   const { rows } = useTerminalSize();
   let [files, setFiles] = useState<string[]>([]);
   let [offset, setOffset] = useState(0);
   let [cursor, setCursor] = useState(0);
   let [shuffled, setShuffled] = useState(false);
+  const [absolute, setAbsolute] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [mode, setMode] = useState<"main" | "search">("main");
   const [search, setSearch] = useState("");
@@ -57,8 +62,8 @@ export function Picker() {
     );
     setCursor((cursor = Math.max(minCursor, Math.min(maxCursor, pos))));
   }
-  async function updateFiles() {
-    const list = await find("~/Music", isMpvPlayableAudio);
+  async function updateFiles(dirname: string) {
+    const list = await find(dirname, isMpvPlayableAudio);
     setFiles((files = list));
     const relative = cursor - offset;
     changeOffset(0);
@@ -66,7 +71,7 @@ export function Picker() {
   }
   async function toggleShuffle(value = !shuffled) {
     setShuffled((shuffled = value));
-    await updateFiles();
+    await updateFiles(dir);
     if (shuffled) setFiles((files = shuffle(files)));
   }
   async function onInput(input: string, key: Key) {
@@ -84,6 +89,8 @@ export function Picker() {
       changeCursor(savedCursor + delta);
     } else if (input === "r") {
       toggleShuffle();
+    } else if (input === "f") {
+      setAbsolute(!absolute);
     } else if (key.escape || input === "q" || (input === "c" && key.ctrl))
       unmount();
     else if (input === "H") changeCursor(offset);
@@ -131,8 +138,8 @@ export function Picker() {
     setSearch(text);
   }
   useEffect(() => {
-    updateFiles();
-  }, []);
+    updateFiles(dir);
+  }, [dir]);
   useInput(onInput, { isActive: mode === "main" });
   return (
     <>
@@ -141,6 +148,7 @@ export function Picker() {
           <PickerLine
             key={file}
             file={file}
+            absolute={absolute}
             selected={selected.has(file)}
             hover={cursor === i + offset}
           />
