@@ -1,7 +1,5 @@
 import pkg from "../package.json" with { type: "json" };
-import React from "react";
 import { Command, program } from "commander";
-import { Instance, render } from "ink";
 import {
   getDuration,
   getPause,
@@ -19,13 +17,8 @@ import {
   setPause,
 } from "./index.js";
 import { startDaemon, killDaemon, printEnv, getDaemonPID } from "./env.js";
-import { Picker } from "./Picker.js";
-
-let INK_INSTANCE: Instance | null = null;
-
-export function unmount() {
-  INK_INSTANCE?.unmount();
-}
+import { mountPicker } from "./router.js";
+import { printPlaylist } from "./playlist.js";
 
 program.name("mpvd").description("MPV daemon control").version(pkg.version);
 
@@ -75,21 +68,7 @@ program
   .action(
     wrapped(async function (_args, cmd: Command) {
       const { plain, full } = cmd.opts();
-      const pause = await getPause();
-      const playlist = await getPlaylist();
-      const out = playlist
-        .map(({ filename, current }, i) => {
-          let id = String(i + 1).padStart(4, " ");
-          if (process.stdout.isTTY) id = `\x1b[2m${id}\x1b[m`;
-          const cursor = current ? (pause ? "-" : "*") : " ";
-          let name = full ? filename : /[^\/]+$/.exec(filename)![0];
-          if (current && process.stdout.isTTY && !plain)
-            name = `\x1b[32m${name}\x1b[m`;
-          if (plain) return name;
-          return `${id} ${cursor} ${name}`;
-        })
-        .join("\n");
-      print(out);
+      print(await printPlaylist({ plain, full }));
     }),
   );
 
@@ -174,12 +153,7 @@ program
   .command("pick")
   .description("Pick files to playlist")
   .argument("[dirpath]", "Directory path", "~/Music")
-  .action(function (dirpath: string) {
-    INK_INSTANCE = render(<Picker dir={dirpath} />, {
-      alternateScreen: true,
-      exitOnCtrlC: false,
-    });
-  });
+  .action(wrapped(mountPicker));
 
 program
   .command("next")

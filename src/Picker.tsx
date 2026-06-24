@@ -4,7 +4,6 @@ import * as path from "node:path";
 import { useTerminalSize } from "./useTerminalSize.js";
 import { find, isMpvPlayableAudio } from "./find.js";
 import { shuffle } from "./shuffle.js";
-import { unmount } from "./mpvd.js";
 import { pushToPlaylist } from "./index.js";
 import { Input } from "./Input.js";
 import { startDaemon } from "./env.js";
@@ -28,7 +27,13 @@ export function PickerLine({
   return <Text inverse={hover}>{full.padEnd(columns, " ")}</Text>;
 }
 
-export function Picker({ dir = "~/Music" }: { dir?: string }) {
+export function Picker({
+  dir = "~/Music",
+  unmount,
+}: {
+  dir?: string;
+  unmount?: () => any;
+}) {
   const { rows } = useTerminalSize();
   let [files, setFiles] = useState<string[]>([]);
   let [offset, setOffset] = useState(0);
@@ -92,7 +97,7 @@ export function Picker({ dir = "~/Music" }: { dir?: string }) {
     } else if (input === "f") {
       setAbsolute(!absolute);
     } else if (key.escape || input === "q" || (input === "c" && key.ctrl))
-      unmount();
+      unmount?.();
     else if (input === "H") changeCursor(offset);
     else if (input === "L") changeCursor(offset + listHeight);
     else if (key.downArrow || input === "j" || (input === "n" && key.ctrl)) {
@@ -113,7 +118,7 @@ export function Picker({ dir = "~/Music" }: { dir?: string }) {
       else selected.add(filteredFiles[cursor]);
       setSelected(new Set(selected));
     } else if (key.return) {
-      unmount();
+      unmount?.();
       const started = await startDaemon();
       if (started) await new Promise((r) => setTimeout(r, 500));
       await Promise.all(
