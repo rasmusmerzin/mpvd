@@ -14,7 +14,8 @@ export const MPVD_SOCK =
   process.env.MPVD_SOCK ||
   (process.env.XDG_RUNTIME_DIR || process.env.HOME) + "/mpvd.sock";
 
-export const MPVD_PID = MPVD_SOCK.replace(/[^\/]+$/, "mpvd.pid");
+export const MPVD_PID =
+  process.env.MPVD_PID || MPVD_SOCK.replace(/[^\/]+$/, "mpvd.pid");
 
 export async function startDaemon(): Promise<boolean> {
   const pid = await getDaemonPID();
