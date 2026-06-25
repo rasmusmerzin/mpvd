@@ -148,3 +148,7 @@ export async function moveInPlaylist(from: number, to: number) {
 export async function removeFromPlaylist(index: number) {
   await send("playlist-remove", index - 1);
 }
+
+export async function seek(seconds: number) {
+  await send("seek", seconds);
+}

@@ -11,6 +11,7 @@ import {
   moveInPlaylist,
   playAtIndex,
   removeFromPlaylist,
+  seek,
   togglePause,
 } from "./index.js";
 import { useTerminalSize } from "./useTerminalSize.js";
@@ -81,7 +82,7 @@ export function Playlist({ unmount }: { unmount?: () => any }) {
     } else if (input === "G") {
       changeOffset(maxOffset);
       changeCursor(playlist.length - 1);
-    } else if (input === "f") {
+    } else if (input === "f" && !key.ctrl) {
       setAbsolute(!absolute);
     } else if (input === "p") {
       mountPicker({ unmount: mountPlaylist });
@@ -105,6 +106,12 @@ export function Playlist({ unmount }: { unmount?: () => any }) {
     } else if (input === " ") {
       await togglePause();
       await updateState();
+    } else if (key.leftArrow || (input === "b" && key.ctrl)) {
+      await seek(-5);
+      await updateTime();
+    } else if (key.rightArrow || (input === "f" && key.ctrl)) {
+      await seek(5);
+      await updateTime();
     } else if (key.return) {
       const position = cursor + 1;
       if (position === current) return togglePause();

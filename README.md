@@ -131,6 +131,8 @@ real time.
 | `D`/`Delete`       | Remove track from playlist                          |
 | `p`                | Open picker to add files                            |
 | `q`/`Esc`/`Ctrl-c` | Exit interactive list                               |
+| `←`/`Ctrl-b`       | Seek 5 seconds backward                             |
+| `→`/`Ctrl-f`       | Seek 5 seconds forward                              |
 
 ## Environment
 

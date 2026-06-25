@@ -10,6 +10,7 @@ and this project adheres to
 
 ### Added
 
+- `list` left and right arrow keys keybinds to seek
 - `list` is now the default command; running `mpvd` with no arguments opens the
   interactive playlist
 - `list` shift arrow keybinds for moving playlist entries
