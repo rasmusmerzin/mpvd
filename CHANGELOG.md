@@ -17,6 +17,7 @@ and this project adheres to
 ### Changed
 
 - Added error handling to `send` function
+- Configured interactive list to use observer pattern instead of polling
 
 ## [0.5.0] - 2026-06-25
 

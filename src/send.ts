@@ -29,32 +29,58 @@ export function send(
 }
 
 export class MpvObserver extends EventTarget {
-  private socket!: Socket;
+  private socket: Socket;
   private buffer = "";
   private listeners = new Set<AbortController>();
   private idSeq = 1;
 
+  constructor() {
+    super();
+    this.socket = createConnection(MPVD_SOCK, () =>
+      this.dispatchEvent(new Event("connect")),
+    );
+    this.socket.on("error", (error) =>
+      this.dispatchEvent(new CustomEvent("error", { detail: error })),
+    );
+    this.socket.on("end", () => this.dispatchEvent(new Event("close")));
+    this.socket.on("data", (chunk) => {
+      this.buffer += chunk;
+      if (this.buffer.includes("\n")) {
+        const parts = this.buffer.split("\n");
+        this.buffer = parts.pop() || "";
+        const messages = parts.map(safeParse).filter((a) => a);
+        for (const message of messages) {
+          this.dispatchEvent(
+            message.event
+              ? new CustomEvent("event", { detail: message })
+              : new CustomEvent("data", { detail: message }),
+          );
+        }
+      }
+    });
+  }
+
   static connect(): Promise<MpvObserver> {
     return new Promise((resolve, reject) => {
       const observer = new MpvObserver();
-      observer.socket = createConnection(MPVD_SOCK, () => resolve(observer));
-      observer.socket.on("error", reject);
-      observer.socket.on("end", () => reject(new Error("connection closed")));
-      observer.socket.on("data", (chunk) => {
-        observer.buffer += chunk;
-        if (observer.buffer.includes("\n")) {
-          const parts = observer.buffer.split("\n");
-          observer.buffer = parts.pop() || "";
-          const messages = parts.map(safeParse).filter((a) => a);
-          for (const message of messages) {
-            observer.dispatchEvent(
-              message.event
-                ? new CustomEvent("event", { detail: message })
-                : new CustomEvent("data", { detail: message }),
-            );
-          }
-        }
-      });
+      const control = new AbortController();
+      const { signal } = control;
+      function onConnect() {
+        resolve(observer);
+        control.abort();
+      }
+      function onClose() {
+        reject(new Error("connection closed"));
+        control.abort();
+      }
+      function onError(event: Event) {
+        const { detail } = event as CustomEvent<Error>;
+        reject(detail);
+        control.abort();
+      }
+      observer.addEventListener("connect", onConnect, { signal });
+      observer.addEventListener("close", onClose, { signal });
+      observer.addEventListener("error", onError, { signal });
     });
   }
 
@@ -75,6 +101,9 @@ export class MpvObserver extends EventTarget {
         listener(detail.data);
     });
     return () => {
+      const command = ["unobserve_property", id];
+      const payload = JSON.stringify({ command }) + "\n";
+      this.socket.write(payload);
       this.listeners.delete(control);
       control.abort();
     };

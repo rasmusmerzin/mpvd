@@ -2,12 +2,10 @@ import * as path from "node:path";
 import React, { useEffect, useMemo, useState } from "react";
 import { Box, Key, Text, useInput } from "ink";
 import {
+  MpvObserver,
   PlaylistItem,
   formatTimeString,
-  getDuration,
-  getPause,
   getPlaylist,
-  getTime,
   moveInPlaylist,
   playAtIndex,
   removeFromPlaylist,
@@ -32,8 +30,8 @@ export function Playlist({ unmount }: { unmount?: () => any }) {
   const { rows } = useTerminalSize();
   const listHeight = rows - 1;
   const maxOffset = playlist.length - listHeight;
-  function changeOffset(update = offset) {
-    setOffset((offset = Math.max(0, Math.min(maxOffset, update))));
+  function changeOffset(value = offset) {
+    setOffset((offset = Math.max(0, Math.min(maxOffset, value))));
     changeCursor();
   }
   function changeCursor(pos = cursor) {
@@ -90,67 +88,48 @@ export function Playlist({ unmount }: { unmount?: () => any }) {
       const position = cursor + 1;
       if (position >= playlist.length) return;
       await moveInPlaylist(position, position + 1);
-      await update();
+      await updatePlaylist();
       changeCursor(cursor + 1);
     } else if (input === "K" || (key.upArrow && key.shift)) {
       const position = cursor + 1;
       if (position < 2) return;
       await moveInPlaylist(position, position - 1);
-      await update();
+      await updatePlaylist();
       changeCursor(cursor - 1);
     } else if (input === "D" || key.delete) {
       const position = cursor + 1;
       await removeFromPlaylist(position);
-      await update();
       setTimeout(changeCursor);
     } else if (input === " ") {
       await togglePause();
-      await updateState();
     } else if (key.leftArrow || (input === "b" && key.ctrl)) {
       await seek(-5);
-      await updateTime();
     } else if (key.rightArrow || (input === "f" && key.ctrl)) {
       await seek(5);
-      await updateTime();
     } else if (key.return) {
       const position = cursor + 1;
       if (position === current) return togglePause();
       await playAtIndex(position);
-      await update();
     }
   }
-  async function updatePlaylist() {
-    const list = await getPlaylist();
-    if (Array.isArray(list)) setPlaylist((playlist = list));
-  }
-  async function updateState() {
-    const value = await getPause();
-    if (typeof value === "boolean") setPaused((paused = value));
-  }
-  async function updateTime() {
-    const value = await getTime();
-    if (typeof value === "number") setTime((time = value));
-  }
-  async function updateDuration() {
-    const value = await getDuration();
-    if (typeof value === "number") setDuration((duration = value));
-  }
-  async function update() {
-    await updatePlaylist();
-    await updateState();
-    await updateTime();
-    await updateDuration();
+  async function updatePlaylist(list?: PlaylistItem[]) {
+    const wasEmpty = !playlist.length;
+    if (!list) list = await getPlaylist();
+    setPlaylist((playlist = list));
+    if (!wasEmpty) return;
+    const position = playlist.findIndex(({ current }) => current);
+    if (position >= 0) changeCursor(position);
   }
   useEffect(() => {
-    const interval = setInterval(update, 200);
-    update().then(() => {
-      const position = playlist.findIndex(({ current }) => current);
-      if (position >= 0) changeCursor(position);
-    });
-    setTimeout(update, 10);
-    return () => {
-      clearInterval(interval);
-    };
+    const observer = new MpvObserver();
+    function onConnect() {
+      observer.observe("playlist", updatePlaylist);
+      observer.observe("pause", setPaused);
+      observer.observe("time-pos", setTime);
+      observer.observe("duration", setDuration);
+    }
+    observer.addEventListener("connect", onConnect, { once: true });
+    return () => observer.close();
   }, []);
   useInput(onInput);
   return (
