@@ -10,6 +10,7 @@ and this project adheres to
 
 ### Added
 
+- `pick` keybind for marking for insertion
 - `insert` subcommand
 
 ## [0.5.0] - 2026-06-25

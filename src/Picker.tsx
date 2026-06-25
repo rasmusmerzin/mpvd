@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Box, Key, Text, useInput } from "ink";
 import { Input } from "./Input.js";
 import { find, isMpvPlayableAudio } from "./find.js";
-import { pushToPlaylist } from "./index.js";
+import { insertNext, pushToPlaylist } from "./index.js";
 import { shuffle } from "./shuffle.js";
 import { startDaemon } from "./index.js";
 import { useTerminalSize } from "./useTerminalSize.js";
@@ -21,7 +21,8 @@ export function Picker({
   let [cursor, setCursor] = useState(0);
   let [shuffled, setShuffled] = useState(false);
   const [absolute, setAbsolute] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [toPush, setToPush] = useState<Set<string>>(new Set());
+  const [toInsert, setToInsert] = useState<Set<string>>(new Set());
   const [mode, setMode] = useState<"main" | "search">("main");
   const [search, setSearch] = useState("");
   const searchRegex = useMemo(
@@ -98,20 +99,32 @@ export function Picker({
     } else if (input === "r") {
       toggleShuffle();
     } else if (input === " " || key.tab) {
-      if (selected.has(filteredFiles[cursor]))
-        selected.delete(filteredFiles[cursor]);
-      else selected.add(filteredFiles[cursor]);
-      setSelected(new Set(selected));
+      const file = filteredFiles[cursor];
+      if (toPush.has(file) || toInsert.has(file)) {
+        toPush.delete(file);
+        toInsert.delete(file);
+      } else toPush.add(file);
+      setToPush(new Set(toPush));
+      setToInsert(new Set(toInsert));
+    } else if (input === "i") {
+      const file = filteredFiles[cursor];
+      toPush.delete(file);
+      if (toInsert.has(file)) toInsert.delete(file);
+      else toInsert.add(file);
+      setToPush(new Set(toPush));
+      setToInsert(new Set(toInsert));
     } else if (key.return) {
       unmount?.();
       const started = await startDaemon();
       if (started) await new Promise((r) => setTimeout(r, 200));
-      await Promise.all(
-        Array.from(selected, async (file) => {
-          await pushToPlaylist(file);
-          console.log(file);
-        }),
-      );
+      for (const file of toPush) {
+        await pushToPlaylist(file);
+        console.log(file);
+      }
+      for (const file of Array.from(toInsert).reverse()) {
+        await insertNext(file);
+        console.log(file);
+      }
     } else if (input === "/") {
       setMode("search");
     }
@@ -139,7 +152,8 @@ export function Picker({
             key={file}
             file={file}
             absolute={absolute}
-            selected={selected.has(file)}
+            toPush={toPush.has(file)}
+            toInsert={toInsert.has(file)}
             hover={cursor === i + offset}
           />
         ))}
@@ -159,18 +173,20 @@ export function Picker({
 }
 
 function PickerLine({
-  selected = false,
+  toPush = false,
+  toInsert = false,
   hover = false,
   absolute = false,
   file,
 }: {
-  selected?: boolean;
+  toPush?: boolean;
+  toInsert?: boolean;
   hover?: boolean;
   absolute?: boolean;
   file: string;
 }) {
   const { columns } = useTerminalSize();
-  const prefix = selected ? "* " : "  ";
+  const prefix = toInsert ? "i " : toPush ? "* " : "  ";
   let name = file;
   if (!absolute) name = path.basename(file);
   const full = prefix + name;

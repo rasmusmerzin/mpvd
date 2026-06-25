@@ -84,7 +84,8 @@ audio files, search by regex, shuffle, and push them to the playlist.
 | `G`                | Go to bottom                                      |
 | `H`                | Go to top of visible page                         |
 | `L`                | Go to bottom of visible page                      |
-| `Space`/`Tab`      | Toggle selection of current file                  |
+| `Space`/`Tab`      | Toggle selection of highlighted file              |
+| `i`                | Mark highlighted file for insertion               |
 | `Enter`            | Push selected files to playlist and exit          |
 | `r`                | Toggle shuffle                                    |
 | `f`                | Toggle display between basename and absolute path |
