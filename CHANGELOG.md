@@ -13,6 +13,10 @@ and this project adheres to
 - `pick` keybind for marking for insertion
 - `insert` subcommand
 
+### Changed
+
+- Added error handling to `send` function
+
 ## [0.5.0] - 2026-06-25
 
 ### Added
@@ -21,7 +25,7 @@ and this project adheres to
   interactive playlist
 - `list` left and right arrow keys keybinds to seek
 - `list` shift arrow keybinds for moving playlist entries
-- Use given `MPVD_PID` if provided.
+- Use given `MPVD_PID` if provided
 
 ## [0.4.0] - 2026-06-24
 

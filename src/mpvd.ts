@@ -219,7 +219,7 @@ program
   .description("Send IPC command")
   .action(
     wrapped(async function (args: string[]) {
-      print(await send(...args));
+      print(await send(args, { raw: true }));
     }),
   );
 
