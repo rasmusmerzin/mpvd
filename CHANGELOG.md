@@ -12,6 +12,7 @@ and this project adheres to
 
 - `pick` keybind for marking for insertion
 - `insert` subcommand
+- `observe` subcommand
 
 ### Changed
 

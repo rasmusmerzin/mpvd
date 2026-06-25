@@ -56,9 +56,10 @@ a Unix socket at `$MPVD_SOCK` (defaults to `$XDG_RUNTIME_DIR/mpvd.sock` or
 
 ### Raw IPC
 
-| Command              | Description                                  |
-| -------------------- | -------------------------------------------- |
-| `mpvd send <cmd...>` | Send arbitrary command to the mpv IPC socket |
+| Command                   | Description                                  |
+| ------------------------- | -------------------------------------------- |
+| `mpvd send <cmd...>`      | Send arbitrary command to the mpv IPC socket |
+| `mpvd observe <property>` | Observe MPV property                         |
 
 The `send` command accepts JSON-native arguments (strings, numbers, booleans)
 and prints the raw response from mpv. This is useful for sending any

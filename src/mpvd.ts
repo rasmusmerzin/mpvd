@@ -3,6 +3,7 @@ import { Command, program } from "commander";
 import {
   MPVD_PID,
   MPVD_SOCK,
+  MpvObserver,
   getDaemonPID,
   getDuration,
   getPause,
@@ -223,6 +224,17 @@ program
     }),
   );
 
+program
+  .command("observe")
+  .argument("<property>", "MPV property to observe")
+  .description("Observe MPV property value")
+  .action(
+    wrapped(async function (property: string) {
+      const observer = await MpvObserver.connect();
+      observer.observe(property, print);
+    }),
+  );
+
 program.parse();
 
 function safeParseInt(arg?: string) {
@@ -233,7 +245,7 @@ function safeParseInt(arg?: string) {
 }
 
 function print(value: any) {
-  if (!value) return;
+  if (value == null) return;
   if (typeof value === "string") console.log(value);
   else if (typeof value === "object") console.log(JSON.stringify(value));
   else console.log(String(value));
