@@ -8,11 +8,13 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-25
+
 ### Added
 
-- `list` left and right arrow keys keybinds to seek
 - `list` is now the default command; running `mpvd` with no arguments opens the
   interactive playlist
+- `list` left and right arrow keys keybinds to seek
 - `list` shift arrow keybinds for moving playlist entries
 - Use given `MPVD_PID` if provided.
 
