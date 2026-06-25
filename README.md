@@ -40,6 +40,7 @@ a Unix socket at `$MPVD_SOCK` (defaults to `$XDG_RUNTIME_DIR/mpvd.sock` or
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------- |
 | `mpvd list` (`ls`)             | Show the playlist (`--plain` for raw names, `--full` for absolute paths, `--interactive` for interactive TUI) |
 | `mpvd push <files...>`         | Append one or more files to the playlist                                                                      |
+| `mpvd insert <files...>`       | Insert one or more files to the playlist after current track                                                  |
 | `mpvd pick [dirpath=~/Music]`  | Interactive TUI to browse and pick files                                                                      |
 | `mpvd move <from> <to>` (`mv`) | Move a track from one playlist index to another                                                               |
 | `mpvd remove <index>` (`rm`)   | Remove a track at the given playlist index                                                                    |

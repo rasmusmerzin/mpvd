@@ -131,6 +131,10 @@ export async function pushToPlaylist(file: string) {
   await send("loadfile", resolveTilde(file), "append-play");
 }
 
+export async function insertNext(file: string) {
+  await send("loadfile", resolveTilde(file), "insert-next");
+}
+
 export async function goToNext() {
   await send("playlist-next");
 }

@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- `insert` subcommand
+
 ## [0.5.0] - 2026-06-25
 
 ### Added

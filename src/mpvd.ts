@@ -12,6 +12,7 @@ import {
   getTimeString,
   goToNext,
   goToPrev,
+  insertNext,
   killDaemon,
   moveInPlaylist,
   playAtIndex,
@@ -159,6 +160,16 @@ program
   .action(
     wrapped(async function (files: string[]) {
       for (const file of files) await pushToPlaylist(file);
+    }),
+  );
+
+program
+  .command("insert")
+  .arguments("<files...>")
+  .description("Insert files to playlist after current")
+  .action(
+    wrapped(async function (files: string[]) {
+      for (const file of files.reverse()) await insertNext(file);
     }),
   );
 
