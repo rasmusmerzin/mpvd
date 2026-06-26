@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-06-26
+
 ### Added
 
 - `pick` keybind for marking for insertion
@@ -70,7 +72,9 @@ and this project adheres to
 - `remove`/`rm` subcommand
 - `send` subcommand
 
-[unreleased]: https://github.com/rasmusmerzin/mpvd/compare/v0.4.0...main
+[unreleased]: https://github.com/rasmusmerzin/mpvd/compare/v1.0.0...main
+[1.0.0]: https://github.com/rasmusmerzin/mpvd/compare/v0.5.0...v1.0.0
+[0.5.0]: https://github.com/rasmusmerzin/mpvd/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/rasmusmerzin/mpvd/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/rasmusmerzin/mpvd/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/rasmusmerzin/mpvd/compare/v0.1.0...v0.2.0
