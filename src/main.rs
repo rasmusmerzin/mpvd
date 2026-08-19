@@ -1,7 +1,9 @@
 mod config;
 mod control;
 mod daemon;
+mod find;
 mod ipc;
+mod pick;
 mod playlist;
 
 use clap::{Parser, Subcommand};
@@ -96,6 +98,12 @@ enum Commands {
     Observe {
         /// MPV property to observe
         property: String,
+    },
+    /// Pick files to playlist
+    Pick {
+        /// Directory path to browse
+        #[arg(default_value = "~/Music")]
+        dirpath: String,
     },
 }
 
@@ -283,5 +291,9 @@ fn main() -> ExitCode {
                 ExitCode::from(1)
             }
         },
+        Commands::Pick { dirpath } => {
+            pick::run(&dirpath);
+            ExitCode::SUCCESS
+        }
     }
 }

@@ -56,6 +56,12 @@ Output binary will be placed at `target/release/mpvd`.
 | `mpvd send <cmd...>`  | Send arbitrary command to the mpv IPC socket |
 | `mpvd observe <prop>` | Observe MPV property value                   |
 
+### Interactive
+
+| Command                  | Description                                       |
+| ------------------------ | ------------------------------------------------- |
+| `mpvd pick [dirpath]`    | Interactive file picker (default: `~/Music`)      |
+
 ## Environment
 
 - `MPVD_SOCK`: Path to the mpv IPC socket (default: `$XDG_RUNTIME_DIR/mpvd.sock` or `$HOME/mpvd.sock`)
@@ -63,4 +69,4 @@ Output binary will be placed at `target/release/mpvd`.
 
 ## Status
 
-Work in progress. Interactive TUI (`mpvd pick`, `mpvd list --interactive`) is not yet ported from the [TypeScript version](https://github.com/merzin/mpvd).
+Work in progress. Interactive playlist (`mpvd list --interactive`) is not yet ported from the [TypeScript version](https://github.com/merzin/mpvd).
