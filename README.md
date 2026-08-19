@@ -8,9 +8,9 @@ MPV music player daemon controller CLI.
 cargo build --release
 ```
 
-Binary is written to `./target/release/mpvd`.
-
 ## Commands
+
+### Daemon lifecycle
 
 | Command               | Description                                |
 | --------------------- | ------------------------------------------ |
@@ -19,6 +19,13 @@ Binary is written to `./target/release/mpvd`.
 | `mpvd pid`            | Print the daemon's PID                     |
 | `mpvd env`            | Print `MPVD_SOCK` and `MPVD_PID` paths     |
 
+### Playlist management
+
+| Command                | Description                                                              |
+| ---------------------- | ------------------------------------------------------------------------ |
+| `mpvd list` (`ls`)     | Show the playlist (`--plain` for raw names, `--full` for absolute paths) |
+| `mpvd push <files...>` | Append one or more files to the playlist                                 |
+
 ## Environment
 
 - `MPVD_SOCK`: Path to the mpv IPC socket (default: `$XDG_RUNTIME_DIR/mpvd.sock` or `$HOME/mpvd.sock`)
@@ -26,4 +33,4 @@ Binary is written to `./target/release/mpvd`.
 
 ## Status
 
-Work in progress. Currently implements daemon lifecycle commands only. Playback, playlist management, IPC, and interactive TUI are not yet ported from the [TypeScript version](https://github.com/merzin/mpvd).
+Work in progress. Playback, interactive TUI, and remaining playlist operations are not yet ported from the [TypeScript version](https://github.com/merzin/mpvd).

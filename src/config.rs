@@ -1,7 +1,7 @@
 use std::env;
 use std::path::PathBuf;
 
-fn resolve_tilde(path: &str) -> PathBuf {
+pub fn resolve_tilde(path: &str) -> PathBuf {
     if let Some(rest) = path.strip_prefix('~')
         && let Some(home) = env::var_os("HOME")
     {

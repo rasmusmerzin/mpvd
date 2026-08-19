@@ -1,5 +1,8 @@
 mod config;
+mod control;
 mod daemon;
+mod ipc;
+mod playlist;
 
 use clap::{Parser, Subcommand};
 use std::process::ExitCode;
@@ -22,6 +25,21 @@ enum Commands {
     Pid,
     /// Print MPVD_SOCK and MPVD_PID paths
     Env,
+    /// Show the playlist
+    #[command(alias = "ls")]
+    List {
+        /// Print without decorations
+        #[arg(short, long)]
+        plain: bool,
+        /// Print with absolute paths
+        #[arg(short, long)]
+        full: bool,
+    },
+    /// Append one or more files to the playlist
+    Push {
+        /// Files to append
+        files: Vec<String>,
+    },
 }
 
 fn main() -> ExitCode {
@@ -32,6 +50,27 @@ fn main() -> ExitCode {
         Commands::Pid => daemon::pid(),
         Commands::Env => {
             daemon::env();
+            ExitCode::SUCCESS
+        }
+        Commands::List { plain, full } => match playlist::print_playlist(plain, full) {
+            Ok(out) => {
+                if !out.is_empty() {
+                    println!("{out}");
+                }
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                ExitCode::from(1)
+            }
+        },
+        Commands::Push { files } => {
+            for file in &files {
+                if let Err(e) = control::push_to_playlist(file) {
+                    eprintln!("{e}");
+                    return ExitCode::from(1);
+                }
+            }
             ExitCode::SUCCESS
         }
     }
