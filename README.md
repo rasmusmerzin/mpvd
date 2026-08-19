@@ -23,10 +23,14 @@ Output binary will be placed at `target/release/mpvd`.
 
 ### Playlist management
 
-| Command                | Description                                                              |
-| ---------------------- | ------------------------------------------------------------------------ |
-| `mpvd list` (`ls`)     | Show the playlist (`--plain` for raw names, `--full` for absolute paths) |
-| `mpvd push <files...>` | Append one or more files to the playlist                                 |
+| Command                        | Description                                                                                                   |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `mpvd list` (`ls`)             | Show the playlist (`--plain` for raw names, `--full` for absolute paths)                                      |
+| `mpvd push <files...>`         | Append one or more files to the playlist                                                                      |
+| `mpvd insert <files...>`       | Insert one or more files to the playlist after current track                                                  |
+| `mpvd move <from> <to>` (`mv`) | Move a track from one playlist index to another                                                               |
+| `mpvd remove <index>` (`rm`)   | Remove a track at the given playlist index                                                                    |
+| `mpvd position` (`pos`)        | Print the playlist index of the current track (1-based)                                                       |
 
 ### Playback
 
@@ -51,4 +55,4 @@ Output binary will be placed at `target/release/mpvd`.
 
 ## Status
 
-Work in progress. Interactive TUI and remaining playlist operations are not yet ported from the [TypeScript version](https://github.com/merzin/mpvd).
+Work in progress. Interactive TUI (`mpvd pick`, `mpvd list --interactive`) is not yet ported from the [TypeScript version](https://github.com/merzin/mpvd).

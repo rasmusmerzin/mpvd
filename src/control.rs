@@ -48,3 +48,36 @@ pub fn go_prev() -> Result<(), String> {
     ipc::send(&[json!("playlist-prev")])?;
     Ok(())
 }
+
+pub fn insert_next(file: &str) -> Result<(), String> {
+    let path = crate::config::resolve_tilde(file);
+    ipc::send(&[
+        json!("loadfile"),
+        json!(path.to_string_lossy()),
+        json!("insert-next"),
+    ])?;
+    Ok(())
+}
+
+pub fn move_in_playlist(from: usize, to: usize) -> Result<(), String> {
+    if from == to {
+        return Ok(());
+    }
+    if from < to {
+        ipc::send(&[json!("playlist-move"), json!(from - 1), json!(to)])?;
+    } else {
+        ipc::send(&[json!("playlist-move"), json!(from - 1), json!(to - 1)])?;
+    }
+    Ok(())
+}
+
+pub fn remove_from_playlist(index: usize) -> Result<(), String> {
+    ipc::send(&[json!("playlist-remove"), json!(index - 1)])?;
+    Ok(())
+}
+
+pub fn get_position() -> Result<usize, String> {
+    let data = ipc::send(&[json!("get_property"), json!("playlist-pos")])?;
+    let pos = data.as_u64().ok_or("expected number")?;
+    Ok(pos as usize + 1)
+}

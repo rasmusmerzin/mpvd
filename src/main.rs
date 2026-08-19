@@ -40,6 +40,28 @@ enum Commands {
         /// Files to append
         files: Vec<String>,
     },
+    /// Insert files to playlist after current track
+    Insert {
+        /// Files to insert
+        files: Vec<String>,
+    },
+    /// Move a track within the playlist
+    #[command(alias = "mv")]
+    Move {
+        /// Source index (1-based)
+        from: usize,
+        /// Destination index (1-based)
+        to: usize,
+    },
+    /// Remove a track from the playlist
+    #[command(alias = "rm")]
+    Remove {
+        /// Playlist index to remove (1-based)
+        index: usize,
+    },
+    /// Print playlist index of the current track
+    #[command(alias = "pos")]
+    Position,
     /// Start/resume playback
     Play {
         /// Playlist index to play at (1-based)
@@ -95,6 +117,39 @@ fn main() -> ExitCode {
             }
             ExitCode::SUCCESS
         }
+        Commands::Insert { files } => {
+            for file in files.iter().rev() {
+                if let Err(e) = control::insert_next(file) {
+                    eprintln!("{e}");
+                    return ExitCode::from(1);
+                }
+            }
+            ExitCode::SUCCESS
+        }
+        Commands::Move { from, to } => match control::move_in_playlist(from, to) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("{e}");
+                ExitCode::from(1)
+            }
+        },
+        Commands::Remove { index } => match control::remove_from_playlist(index) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("{e}");
+                ExitCode::from(1)
+            }
+        },
+        Commands::Position => match control::get_position() {
+            Ok(pos) => {
+                println!("{pos}");
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                ExitCode::from(1)
+            }
+        },
         Commands::Play { index } => {
             if let Some(i) = index
                 && let Err(e) = control::play_at_index(i)
