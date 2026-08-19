@@ -1,8 +1,11 @@
+use std::io::IsTerminal;
+
 use crate::control;
 
 pub fn print_playlist(plain: bool, full: bool) -> Result<String, String> {
     let pause = control::get_pause()?;
     let playlist = control::get_playlist()?;
+    let tty = std::io::stdout().is_terminal();
     let lines: Vec<String> = playlist
         .iter()
         .enumerate()
@@ -26,9 +29,13 @@ pub fn print_playlist(plain: bool, full: bool) -> Result<String, String> {
             if plain {
                 name
             } else {
-                let mut line = format!("\x1b[2m{id}\x1b[m {cursor} ");
+                let mut line = if tty {
+                    format!("\x1b[2m{id}\x1b[m {cursor} ")
+                } else {
+                    format!("{id} {cursor} ")
+                };
                 line.push_str(
-                    &(if is_current {
+                    &(if is_current && tty {
                         format!("\x1b[32m{name}\x1b[m")
                     } else {
                         name
