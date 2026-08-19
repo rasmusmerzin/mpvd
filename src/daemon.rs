@@ -1,7 +1,7 @@
 use std::fs;
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
-use std::process::{Command, ExitCode};
+use std::process::{Command, ExitCode, Stdio};
 
 use crate::config;
 
@@ -25,6 +25,9 @@ pub fn start() -> ExitCode {
                 &format!("--input-ipc-server={}", sock.display()),
             ])
             .current_dir(dirs())
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .pre_exec(|| {
                 // Daemonize: create a new session and detach from terminal
                 libc::setsid();
