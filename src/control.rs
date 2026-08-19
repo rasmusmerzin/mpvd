@@ -28,3 +28,23 @@ pub fn push_to_playlist(file: &str) -> Result<(), String> {
     ])?;
     Ok(())
 }
+
+pub fn set_pause(paused: bool) -> Result<(), String> {
+    ipc::send(&[json!("set_property"), json!("pause"), json!(paused)])?;
+    Ok(())
+}
+
+pub fn play_at_index(index: usize) -> Result<(), String> {
+    ipc::send(&[json!("playlist-play-index"), json!(index)])?;
+    Ok(())
+}
+
+pub fn go_next() -> Result<(), String> {
+    ipc::send(&[json!("playlist-next")])?;
+    Ok(())
+}
+
+pub fn go_prev() -> Result<(), String> {
+    ipc::send(&[json!("playlist-prev")])?;
+    Ok(())
+}

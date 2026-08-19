@@ -40,6 +40,18 @@ enum Commands {
         /// Files to append
         files: Vec<String>,
     },
+    /// Start/resume playback
+    Play {
+        /// Playlist index to play at (1-based)
+        index: Option<usize>,
+    },
+    /// Pause playback
+    Stop,
+    /// Skip to the next track
+    Next,
+    /// Go to the previous track
+    #[command(alias = "previous")]
+    Prev,
 }
 
 fn main() -> ExitCode {
@@ -73,5 +85,39 @@ fn main() -> ExitCode {
             }
             ExitCode::SUCCESS
         }
+        Commands::Play { index } => {
+            if let Some(i) = index
+                && let Err(e) = control::play_at_index(i)
+            {
+                eprintln!("{e}");
+                return ExitCode::from(1);
+            }
+            if let Err(e) = control::set_pause(false) {
+                eprintln!("{e}");
+                return ExitCode::from(1);
+            }
+            ExitCode::SUCCESS
+        }
+        Commands::Stop => match control::set_pause(true) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("{e}");
+                ExitCode::from(1)
+            }
+        },
+        Commands::Next => match control::go_next() {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("{e}");
+                ExitCode::from(1)
+            }
+        },
+        Commands::Prev => match control::go_prev() {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("{e}");
+                ExitCode::from(1)
+            }
+        },
     }
 }

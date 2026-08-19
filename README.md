@@ -26,6 +26,15 @@ cargo build --release
 | `mpvd list` (`ls`)     | Show the playlist (`--plain` for raw names, `--full` for absolute paths) |
 | `mpvd push <files...>` | Append one or more files to the playlist                                 |
 
+### Playback
+
+| Command                  | Description                                           |
+| ------------------------ | ----------------------------------------------------- |
+| `mpvd play [index]`      | Start/resume playback, optionally at a playlist index |
+| `mpvd stop`              | Pause playback                                        |
+| `mpvd next`              | Skip to the next track                                |
+| `mpvd prev` (`previous`) | Go to the previous track                              |
+
 ## Environment
 
 - `MPVD_SOCK`: Path to the mpv IPC socket (default: `$XDG_RUNTIME_DIR/mpvd.sock` or `$HOME/mpvd.sock`)
@@ -33,4 +42,4 @@ cargo build --release
 
 ## Status
 
-Work in progress. Playback, interactive TUI, and remaining playlist operations are not yet ported from the [TypeScript version](https://github.com/merzin/mpvd).
+Work in progress. Interactive TUI and remaining playlist operations are not yet ported from the [TypeScript version](https://github.com/merzin/mpvd).
