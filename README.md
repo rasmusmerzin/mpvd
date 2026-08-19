@@ -35,6 +35,13 @@ cargo build --release
 | `mpvd next`              | Skip to the next track                                |
 | `mpvd prev` (`previous`) | Go to the previous track                              |
 
+### Raw IPC
+
+| Command               | Description                                  |
+| --------------------- | -------------------------------------------- |
+| `mpvd send <cmd...>`  | Send arbitrary command to the mpv IPC socket |
+| `mpvd observe <prop>` | Observe MPV property value                   |
+
 ## Environment
 
 - `MPVD_SOCK`: Path to the mpv IPC socket (default: `$XDG_RUNTIME_DIR/mpvd.sock` or `$HOME/mpvd.sock`)

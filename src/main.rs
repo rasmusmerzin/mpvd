@@ -52,6 +52,16 @@ enum Commands {
     /// Go to the previous track
     #[command(alias = "previous")]
     Prev,
+    /// Send arbitrary command to the mpv IPC socket
+    Send {
+        /// JSON-native arguments (strings, numbers, booleans)
+        cmd: Vec<String>,
+    },
+    /// Observe MPV property
+    Observe {
+        /// MPV property to observe
+        property: String,
+    },
 }
 
 fn main() -> ExitCode {
@@ -113,6 +123,26 @@ fn main() -> ExitCode {
             }
         },
         Commands::Prev => match control::go_prev() {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("{e}");
+                ExitCode::from(1)
+            }
+        },
+        Commands::Send { cmd } => {
+            let args: Vec<serde_json::Value> = cmd.iter().map(|a| ipc::parse_arg(a)).collect();
+            match ipc::send_raw(&args) {
+                Ok(resp) => {
+                    println!("{resp}");
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    ExitCode::from(1)
+                }
+            }
+        }
+        Commands::Observe { property } => match ipc::observe(&property) {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 eprintln!("{e}");
