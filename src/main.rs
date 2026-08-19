@@ -62,6 +62,19 @@ enum Commands {
     /// Print playlist index of the current track
     #[command(alias = "pos")]
     Position,
+    /// Print current track time position
+    Time {
+        /// Print seconds
+        #[arg(short, long)]
+        seconds: bool,
+        /// Print duration
+        #[arg(short, long)]
+        duration: bool,
+    },
+    /// Print playing/paused state
+    State,
+    /// Print current track
+    Current,
     /// Start/resume playback
     Play {
         /// Playlist index to play at (1-based)
@@ -143,6 +156,72 @@ fn main() -> ExitCode {
         Commands::Position => match control::get_position() {
             Ok(pos) => {
                 println!("{pos}");
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                ExitCode::from(1)
+            }
+        },
+        Commands::Time { seconds, duration } => match (seconds, duration) {
+            (false, false) => match control::get_time()
+                .and_then(|t| control::get_duration().map(|d| control::format_time_string(t, d)))
+            {
+                Ok(s) => {
+                    println!("{s}");
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    ExitCode::from(1)
+                }
+            },
+            (true, false) => match control::get_time() {
+                Ok(t) => {
+                    println!("{t}");
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    ExitCode::from(1)
+                }
+            },
+            (false, true) => match control::get_duration() {
+                Ok(d) => {
+                    println!("{d}");
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    ExitCode::from(1)
+                }
+            },
+            (true, true) => match control::get_time()
+                .and_then(|t| control::get_duration().map(|d| format!("{t}/{d}")))
+            {
+                Ok(s) => {
+                    println!("{s}");
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    ExitCode::from(1)
+                }
+            },
+        },
+        Commands::State => match control::get_state() {
+            Ok(state) => {
+                println!("{state}");
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                ExitCode::from(1)
+            }
+        },
+        Commands::Current => match control::get_current() {
+            Ok(name) => {
+                println!("{name}");
                 ExitCode::SUCCESS
             }
             Err(e) => {

@@ -23,14 +23,14 @@ Output binary will be placed at `target/release/mpvd`.
 
 ### Playlist management
 
-| Command                        | Description                                                                                                   |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `mpvd list` (`ls`)             | Show the playlist (`--plain` for raw names, `--full` for absolute paths)                                      |
-| `mpvd push <files...>`         | Append one or more files to the playlist                                                                      |
-| `mpvd insert <files...>`       | Insert one or more files to the playlist after current track                                                  |
-| `mpvd move <from> <to>` (`mv`) | Move a track from one playlist index to another                                                               |
-| `mpvd remove <index>` (`rm`)   | Remove a track at the given playlist index                                                                    |
-| `mpvd position` (`pos`)        | Print the playlist index of the current track (1-based)                                                       |
+| Command                        | Description                                                              |
+| ------------------------------ | ------------------------------------------------------------------------ |
+| `mpvd list` (`ls`)             | Show the playlist (`--plain` for raw names, `--full` for absolute paths) |
+| `mpvd push <files...>`         | Append one or more files to the playlist                                 |
+| `mpvd insert <files...>`       | Insert one or more files to the playlist after current track             |
+| `mpvd move <from> <to>` (`mv`) | Move a track from one playlist index to another                          |
+| `mpvd remove <index>` (`rm`)   | Remove a track at the given playlist index                               |
+| `mpvd position` (`pos`)        | Print the playlist index of the current track (1-based)                  |
 
 ### Playback
 
@@ -40,6 +40,14 @@ Output binary will be placed at `target/release/mpvd`.
 | `mpvd stop`              | Pause playback                                        |
 | `mpvd next`              | Skip to the next track                                |
 | `mpvd prev` (`previous`) | Go to the previous track                              |
+
+### Info
+
+| Command        | Description                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------ |
+| `mpvd time`    | Print current time position (`--seconds` for raw seconds, `--duration` for total duration) |
+| `mpvd state`   | Print `paused` or `playing`                                                                |
+| `mpvd current` | Print current track                                                                        |
 
 ### Raw IPC
 
