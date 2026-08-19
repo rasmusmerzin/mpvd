@@ -8,6 +8,8 @@ MPV music player daemon controller CLI.
 cargo build --release
 ```
 
+Output binary will be placed at `target/release/mpvd`.
+
 ## Commands
 
 ### Daemon lifecycle
