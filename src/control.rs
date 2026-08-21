@@ -102,6 +102,11 @@ pub fn format_time_string(time: f64, duration: f64) -> String {
     format!("{mm}:{ss}/{mm_dur}:{ss_dur}")
 }
 
+pub fn seek(seconds: f64) -> Result<(), String> {
+    ipc::send(&[json!("seek"), json!(seconds), json!("relative")])?;
+    Ok(())
+}
+
 pub fn get_state() -> Result<&'static str, String> {
     let paused = get_pause()?;
     Ok(if paused { "paused" } else { "playing" })

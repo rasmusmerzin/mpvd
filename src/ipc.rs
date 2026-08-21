@@ -73,3 +73,68 @@ pub fn observe(property: &str) -> Result<(), String> {
     }
     Ok(())
 }
+
+pub struct Observer {
+    stream: UnixStream,
+    rx: std::sync::mpsc::Receiver<(u32, String, Value)>,
+    _thread: std::thread::JoinHandle<()>,
+}
+
+impl Observer {
+    pub fn connect() -> Result<Self, String> {
+        let stream = UnixStream::connect(config::mpvd_sock())
+            .map_err(|e| format!("failed to connect: {e}"))?;
+        let reader_stream = stream
+            .try_clone()
+            .map_err(|e| format!("failed to clone: {e}"))?;
+        let (tx, rx) = std::sync::mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            let reader = BufReader::new(reader_stream);
+            for line in reader.lines() {
+                let line = match line {
+                    Ok(l) => l,
+                    Err(_) => break,
+                };
+                let msg: Value = match serde_json::from_str(&line) {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
+                if msg.get("event").and_then(|v| v.as_str()) == Some("property-change") {
+                    let id = msg.get("id").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+                    let name = msg
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let data = msg.get("data").cloned().unwrap_or(Value::Null);
+                    if tx.send((id, name, data)).is_err() {
+                        break;
+                    }
+                }
+            }
+        });
+        Ok(Self {
+            stream,
+            rx,
+            _thread: thread,
+        })
+    }
+
+    pub fn observe(&mut self, id: u32, property: &str) -> Result<(), String> {
+        let cmd = json!({ "command": ["observe_property", id, property] });
+        self.stream
+            .write_all(format!("{cmd}\n").as_bytes())
+            .map_err(|e| format!("failed to write: {e}"))
+    }
+
+    pub fn unobserve(&mut self, id: u32) -> Result<(), String> {
+        let cmd = json!({ "command": ["unobserve_property", id] });
+        self.stream
+            .write_all(format!("{cmd}\n").as_bytes())
+            .map_err(|e| format!("failed to write: {e}"))
+    }
+
+    pub fn poll(&self) -> Vec<(u32, String, Value)> {
+        self.rx.try_iter().collect()
+    }
+}

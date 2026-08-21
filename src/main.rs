@@ -2,6 +2,7 @@ mod config;
 mod control;
 mod daemon;
 mod find;
+mod interactive;
 mod ipc;
 mod pick;
 mod playlist;
@@ -13,7 +14,7 @@ use std::process::ExitCode;
 #[command(name = "mpvd", about = "MPV daemon control")]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
@@ -36,6 +37,9 @@ enum Commands {
         /// Print with absolute paths
         #[arg(short, long)]
         full: bool,
+        /// Open interactive playlist
+        #[arg(short, long)]
+        interactive: bool,
     },
     /// Append one or more files to the playlist
     Push {
@@ -110,26 +114,42 @@ enum Commands {
 fn main() -> ExitCode {
     let cli = Cli::parse();
     match cli.command {
-        Commands::Init => daemon::start(),
-        Commands::Kill => daemon::kill(),
-        Commands::Pid => daemon::pid(),
-        Commands::Env => {
+        None => {
+            // mpvd with no args: open interactive playlist
+            interactive::run();
+            ExitCode::SUCCESS
+        }
+        Some(Commands::Init) => daemon::start(),
+        Some(Commands::Kill) => daemon::kill(),
+        Some(Commands::Pid) => daemon::pid(),
+        Some(Commands::Env) => {
             daemon::env();
             ExitCode::SUCCESS
         }
-        Commands::List { plain, full } => match playlist::print_playlist(plain, full) {
-            Ok(out) => {
-                if !out.is_empty() {
-                    println!("{out}");
-                }
+        Some(Commands::List {
+            plain,
+            full,
+            interactive,
+        }) => {
+            if interactive {
+                interactive::run();
                 ExitCode::SUCCESS
+            } else {
+                match playlist::print_playlist(plain, full) {
+                    Ok(out) => {
+                        if !out.is_empty() {
+                            println!("{out}");
+                        }
+                        ExitCode::SUCCESS
+                    }
+                    Err(e) => {
+                        eprintln!("{e}");
+                        ExitCode::from(1)
+                    }
+                }
             }
-            Err(e) => {
-                eprintln!("{e}");
-                ExitCode::from(1)
-            }
-        },
-        Commands::Push { files } => {
+        }
+        Some(Commands::Push { files }) => {
             for file in &files {
                 if let Err(e) = control::push_to_playlist(file) {
                     eprintln!("{e}");
@@ -138,7 +158,7 @@ fn main() -> ExitCode {
             }
             ExitCode::SUCCESS
         }
-        Commands::Insert { files } => {
+        Some(Commands::Insert { files }) => {
             for file in files.iter().rev() {
                 if let Err(e) = control::insert_next(file) {
                     eprintln!("{e}");
@@ -147,21 +167,21 @@ fn main() -> ExitCode {
             }
             ExitCode::SUCCESS
         }
-        Commands::Move { from, to } => match control::move_in_playlist(from, to) {
+        Some(Commands::Move { from, to }) => match control::move_in_playlist(from, to) {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 eprintln!("{e}");
                 ExitCode::from(1)
             }
         },
-        Commands::Remove { index } => match control::remove_from_playlist(index) {
+        Some(Commands::Remove { index }) => match control::remove_from_playlist(index) {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 eprintln!("{e}");
                 ExitCode::from(1)
             }
         },
-        Commands::Position => match control::get_position() {
+        Some(Commands::Position) => match control::get_position() {
             Ok(pos) => {
                 println!("{pos}");
                 ExitCode::SUCCESS
@@ -171,7 +191,7 @@ fn main() -> ExitCode {
                 ExitCode::from(1)
             }
         },
-        Commands::Time { seconds, duration } => match (seconds, duration) {
+        Some(Commands::Time { seconds, duration }) => match (seconds, duration) {
             (false, false) => match control::get_time()
                 .and_then(|t| control::get_duration().map(|d| control::format_time_string(t, d)))
             {
@@ -217,7 +237,7 @@ fn main() -> ExitCode {
                 }
             },
         },
-        Commands::State => match control::get_state() {
+        Some(Commands::State) => match control::get_state() {
             Ok(state) => {
                 println!("{state}");
                 ExitCode::SUCCESS
@@ -227,7 +247,7 @@ fn main() -> ExitCode {
                 ExitCode::from(1)
             }
         },
-        Commands::Current => match control::get_current() {
+        Some(Commands::Current) => match control::get_current() {
             Ok(name) => {
                 println!("{name}");
                 ExitCode::SUCCESS
@@ -237,7 +257,7 @@ fn main() -> ExitCode {
                 ExitCode::from(1)
             }
         },
-        Commands::Play { index } => {
+        Some(Commands::Play { index }) => {
             if let Some(i) = index
                 && let Err(e) = control::play_at_index(i)
             {
@@ -250,28 +270,28 @@ fn main() -> ExitCode {
             }
             ExitCode::SUCCESS
         }
-        Commands::Stop => match control::set_pause(true) {
+        Some(Commands::Stop) => match control::set_pause(true) {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 eprintln!("{e}");
                 ExitCode::from(1)
             }
         },
-        Commands::Next => match control::go_next() {
+        Some(Commands::Next) => match control::go_next() {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 eprintln!("{e}");
                 ExitCode::from(1)
             }
         },
-        Commands::Prev => match control::go_prev() {
+        Some(Commands::Prev) => match control::go_prev() {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 eprintln!("{e}");
                 ExitCode::from(1)
             }
         },
-        Commands::Send { cmd } => {
+        Some(Commands::Send { cmd }) => {
             let args: Vec<serde_json::Value> = cmd.iter().map(|a| ipc::parse_arg(a)).collect();
             match ipc::send_raw(&args) {
                 Ok(resp) => {
@@ -284,14 +304,14 @@ fn main() -> ExitCode {
                 }
             }
         }
-        Commands::Observe { property } => match ipc::observe(&property) {
+        Some(Commands::Observe { property }) => match ipc::observe(&property) {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 eprintln!("{e}");
                 ExitCode::from(1)
             }
         },
-        Commands::Pick { dirpath } => {
+        Some(Commands::Pick { dirpath }) => {
             pick::run(&dirpath);
             ExitCode::SUCCESS
         }
