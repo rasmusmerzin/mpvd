@@ -124,3 +124,11 @@ pub fn get_current() -> Result<String, String> {
         .map(|item| item.filename.clone())
         .ok_or("no current track".into())
 }
+
+pub fn display_name(filename: &str, absolute: bool) -> &str {
+    if absolute {
+        filename
+    } else {
+        filename.rsplit('/').next().unwrap_or(filename)
+    }
+}

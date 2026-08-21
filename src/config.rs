@@ -1,6 +1,8 @@
 use std::env;
 use std::path::PathBuf;
 
+pub const DEFAULT_MUSIC_DIR: &str = "~/Music";
+
 pub fn resolve_tilde(path: &str) -> PathBuf {
     if let Some(rest) = path.strip_prefix('~')
         && let Some(home) = env::var_os("HOME")

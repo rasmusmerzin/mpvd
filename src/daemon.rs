@@ -24,7 +24,7 @@ pub fn start() -> ExitCode {
                 "--no-video",
                 &format!("--input-ipc-server={}", sock.display()),
             ])
-            .current_dir(dirs())
+            .current_dir(home_dir())
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -88,7 +88,7 @@ pub fn env() {
     println!("MPVD_PID={}", config::mpvd_pid().display());
 }
 
-fn dirs() -> PathBuf {
+fn home_dir() -> PathBuf {
     std::env::var_os("HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."))
