@@ -1,7 +1,9 @@
 [package]
 name = "mpvd"
-version = "0.1.0"
+version = "2.0.0"
 edition = "2024"
+description = "MPV music player daemon"
+license = "MIT"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
