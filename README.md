@@ -121,6 +121,21 @@ Opens a full-screen file browser rooted at `~/Music` (configurable via the `[dir
 | `/`                | Enter search mode                                 |
 | `q`/`Esc`/`Ctrl-c` | Exit without adding files                         |
 
+**Search mode** keybindings:
+
+| Key                  | Action                          |
+| -------------------- | ------------------------------- |
+| `Enter`              | Apply search filter             |
+| `Esc`                | Cancel search                   |
+| `←`/`Ctrl-b`         | Move cursor left                |
+| `→`/`Ctrl-f`         | Move cursor right               |
+| `Backspace`/`Ctrl-h` | Delete character before cursor  |
+| `Delete`/`Ctrl-d`    | Delete character at cursor      |
+| `Ctrl-a`             | Go to beginning of line         |
+| `Ctrl-e`             | Go to end of line               |
+| `Ctrl-u`             | Delete everything before cursor |
+| `Ctrl-k`             | Delete everything after cursor  |
+
 ## Environment
 
 - `MPVD_SOCK`: Path to the mpv IPC socket (default: `$XDG_RUNTIME_DIR/mpvd.sock` or `$HOME/mpvd.sock`)

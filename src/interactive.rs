@@ -410,7 +410,7 @@ fn handle_input(
             }
             let term_height = terminal.size().unwrap().height;
             let _ = terminal.clear();
-            terminal.draw(|f| render(f, &state, term_height)).unwrap();
+            terminal.draw(|f| render(f, state, term_height)).unwrap();
         }
         KeyCode::Char('D') | KeyCode::Delete => {
             let position = state.cursor + 1;

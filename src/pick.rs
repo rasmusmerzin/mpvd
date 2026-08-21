@@ -31,6 +31,7 @@ struct Picker {
     to_push: HashSet<usize>,
     to_insert: HashSet<usize>,
     search: String,
+    search_cursor: usize,
     search_mode: bool,
     absolute: bool,
     shuffled: bool,
@@ -48,6 +49,7 @@ impl Picker {
             to_push: HashSet::new(),
             to_insert: HashSet::new(),
             search: String::new(),
+            search_cursor: 0,
             search_mode: false,
             absolute: false,
             shuffled: false,
@@ -309,11 +311,32 @@ fn render(f: &mut Frame, picker: &Picker, term_height: u16) {
     );
 
     if picker.search_mode {
-        let search_line = Line::from(vec![
-            Span::raw("/"),
-            Span::raw(&picker.search),
-            Span::styled(" ", Style::default().add_modifier(Modifier::REVERSED)),
-        ]);
+        let before: String = picker.search.chars().take(picker.search_cursor).collect();
+        let at_cursor: String = picker
+            .search
+            .chars()
+            .skip(picker.search_cursor)
+            .take(1)
+            .collect();
+        let after: String = picker
+            .search
+            .chars()
+            .skip(picker.search_cursor + 1)
+            .collect();
+        let mut spans = vec![Span::raw(format!("/{before}"))];
+        if at_cursor.is_empty() {
+            spans.push(Span::styled(
+                " ",
+                Style::default().add_modifier(Modifier::REVERSED),
+            ));
+        } else {
+            spans.push(Span::styled(
+                at_cursor,
+                Style::default().add_modifier(Modifier::REVERSED),
+            ));
+            spans.push(Span::raw(after));
+        }
+        let search_line = Line::from(spans);
         f.render_widget(search_line, Rect::new(0, list_height as u16, area.width, 1));
     } else if !picker.search.is_empty() {
         let search_line = Line::from(Span::raw(format!("/{}", picker.search)));
@@ -372,29 +395,71 @@ fn handle_main_input(picker: &mut Picker, key: KeyEvent, term_height: u16) -> Op
 }
 
 fn handle_search_input(picker: &mut Picker, key: KeyEvent, term_height: u16) -> Option<bool> {
+    let has_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
     match key.code {
-        KeyCode::Esc => {
-            picker.search.clear();
-            picker.search_mode = false;
-            picker.update_filter(term_height);
-        }
         KeyCode::Enter => {
             picker.search_mode = false;
             picker.update_filter(term_height);
         }
-        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+        KeyCode::Esc | KeyCode::Char('c') if key.code == KeyCode::Esc || has_ctrl => {
             picker.search.clear();
+            picker.search_cursor = 0;
             picker.search_mode = false;
             picker.update_filter(term_height);
         }
-        KeyCode::Backspace | KeyCode::Char('h')
-            if key.modifiers.contains(KeyModifiers::CONTROL) =>
-        {
-            picker.search.pop();
+        KeyCode::Home | KeyCode::Char('a') if key.code == KeyCode::Home || has_ctrl => {
+            picker.search_cursor = 0;
+        }
+        KeyCode::End | KeyCode::Char('e') if key.code == KeyCode::End || has_ctrl => {
+            picker.search_cursor = picker.search.len();
+        }
+        KeyCode::Char('u') if has_ctrl => {
+            picker.search = picker.search.chars().skip(picker.search_cursor).collect();
+            picker.search_cursor = 0;
             picker.update_filter(term_height);
         }
-        KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
-            picker.search.push(c);
+        KeyCode::Char('k') if has_ctrl => {
+            picker.search.truncate(picker.search_cursor);
+            picker.update_filter(term_height);
+        }
+        KeyCode::Left | KeyCode::Char('b') if key.code == KeyCode::Left || has_ctrl => {
+            picker.search_cursor = picker.search_cursor.saturating_sub(1);
+        }
+        KeyCode::Right | KeyCode::Char('f') if key.code == KeyCode::Right || has_ctrl => {
+            if picker.search_cursor < picker.search.len() {
+                picker.search_cursor += 1;
+            }
+        }
+        KeyCode::Backspace | KeyCode::Char('h') if key.code == KeyCode::Backspace || has_ctrl => {
+            if picker.search_cursor > 0 {
+                let before: String = picker
+                    .search
+                    .chars()
+                    .take(picker.search_cursor - 1)
+                    .collect();
+                let after: String = picker.search.chars().skip(picker.search_cursor).collect();
+                picker.search = format!("{before}{after}");
+                picker.search_cursor -= 1;
+                picker.update_filter(term_height);
+            }
+        }
+        KeyCode::Delete | KeyCode::Char('d') if key.code == KeyCode::Delete || has_ctrl => {
+            if picker.search_cursor < picker.search.len() {
+                let before: String = picker.search.chars().take(picker.search_cursor).collect();
+                let after: String = picker
+                    .search
+                    .chars()
+                    .skip(picker.search_cursor + 1)
+                    .collect();
+                picker.search = format!("{before}{after}");
+                picker.update_filter(term_height);
+            }
+        }
+        KeyCode::Char(c) if !has_ctrl => {
+            let before: String = picker.search.chars().take(picker.search_cursor).collect();
+            let after: String = picker.search.chars().skip(picker.search_cursor).collect();
+            picker.search = format!("{before}{c}{after}");
+            picker.search_cursor += 1;
             picker.update_filter(term_height);
         }
         _ => {}
