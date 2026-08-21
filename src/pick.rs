@@ -160,6 +160,30 @@ impl Picker {
         self.search.chars().count()
     }
 
+    fn search_word_start(&self, pos: usize) -> usize {
+        let chars: Vec<char> = self.search.chars().collect();
+        let mut i = pos.min(chars.len());
+        while i > 0 && chars[i - 1].is_whitespace() {
+            i -= 1;
+        }
+        while i > 0 && !chars[i - 1].is_whitespace() {
+            i -= 1;
+        }
+        i
+    }
+
+    fn search_word_end(&self, pos: usize) -> usize {
+        let chars: Vec<char> = self.search.chars().collect();
+        let mut i = pos;
+        while i < chars.len() && chars[i].is_whitespace() {
+            i += 1;
+        }
+        while i < chars.len() && !chars[i].is_whitespace() {
+            i += 1;
+        }
+        i
+    }
+
     fn edit_search(&mut self, edit: impl FnOnce(&mut Vec<char>, usize)) {
         let mut chars: Vec<char> = self.search.chars().collect();
         edit(&mut chars, self.search_cursor);
@@ -344,6 +368,20 @@ fn handle_search_input(picker: &mut Picker, key: KeyEvent, term_height: u16) -> 
         KeyCode::Char('a') if has_ctrl => picker.search_cursor = 0,
         KeyCode::End => picker.search_cursor = picker.search_len(),
         KeyCode::Char('e') if has_ctrl => picker.search_cursor = picker.search_len(),
+        KeyCode::Char('w') if has_ctrl => {
+            let target = picker.search_word_start(picker.search_cursor);
+            picker.edit_search(|chars, cur| {
+                chars.drain(target..cur);
+            });
+            picker.search_cursor = target;
+            picker.update_filter(term_height);
+        }
+        KeyCode::Left if has_ctrl => {
+            picker.search_cursor = picker.search_word_start(picker.search_cursor);
+        }
+        KeyCode::Right if has_ctrl => {
+            picker.search_cursor = picker.search_word_end(picker.search_cursor);
+        }
         KeyCode::Left => picker.search_cursor = picker.search_cursor.saturating_sub(1),
         KeyCode::Char('b') if has_ctrl => {
             picker.search_cursor = picker.search_cursor.saturating_sub(1);

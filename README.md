@@ -129,6 +129,9 @@ Opens a full-screen file browser rooted at `~/Music` (configurable via the `[dir
 | `Esc`                | Cancel search                   |
 | `←`/`Ctrl-b`         | Move cursor left                |
 | `→`/`Ctrl-f`         | Move cursor right               |
+| `Ctrl-←`             | Move cursor to previous word    |
+| `Ctrl-→`             | Move cursor to next word        |
+| `Ctrl-w`             | Delete previous word            |
 | `Backspace`/`Ctrl-h` | Delete character before cursor  |
 | `Delete`/`Ctrl-d`    | Delete character at cursor      |
 | `Ctrl-a`             | Go to beginning of line         |
