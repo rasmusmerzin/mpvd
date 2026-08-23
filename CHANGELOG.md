@@ -15,6 +15,7 @@ and this project adheres to
 
 ### Fixed
 
+- `mpvd ls | head` will not panic.
 - `mpvd pick` empty search results.
 - Replace hardcoded observe ids with generated ones in interactive playlist.
 - Update scroll and cursor when playlist is modified externally.

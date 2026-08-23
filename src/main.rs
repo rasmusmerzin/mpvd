@@ -156,6 +156,8 @@ fn play(index: Option<usize>) -> Result<(), String> {
 }
 
 fn main() -> ExitCode {
+    // fix piping output into `head`
+    unsafe { libc::signal(libc::SIGPIPE, libc::SIG_DFL) };
     let cli = Cli::parse();
     match cli.command {
         None => {
