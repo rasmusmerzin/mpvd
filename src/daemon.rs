@@ -60,6 +60,7 @@ fn is_zombie(pid: u32) -> bool {
     }
 }
 
+/// Start mpv daemon. Returns exit code 2 if daemon is already running.
 pub fn start() -> ExitCode {
     if get_pid().is_some() {
         return ExitCode::from(2);

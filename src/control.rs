@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use serde_json::json;
 
+use crate::daemon;
 use crate::ipc;
 
 #[derive(Debug, Deserialize)]
@@ -20,6 +21,7 @@ pub fn get_pause() -> Result<bool, String> {
 }
 
 pub fn push_to_playlist(file: &str) -> Result<(), String> {
+    daemon::start();
     let path = crate::config::resolve_tilde(file);
     ipc::send(&[
         json!("loadfile"),

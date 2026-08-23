@@ -10,6 +10,7 @@ and this project adheres to
 
 ### Changed
 
+- `mpvd push` starts the daemon if not already started.
 - `mpvd init` probes readiness of socket and waits until socket is ready.
 
 ### Fixed
