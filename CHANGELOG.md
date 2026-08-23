@@ -11,6 +11,7 @@ and this project adheres to
 ### Fixed
 
 - `mpvd pick` empty search results.
+- Replace hardcoded observe ids with generated ones in interactive playlist.
 
 ## [2.1.1] - 2026-08-23
 

@@ -115,12 +115,13 @@ impl Observer {
         })
     }
 
-    pub fn observe(&mut self, property: &str) -> Result<(), String> {
+    pub fn observe(&mut self, property: &str) -> Result<u32, String> {
         self._id_seq += 1;
         write_msg(
             &mut self.stream,
             &json!({ "command": ["observe_property", self._id_seq, property] }),
         )
+        .map(|_| self._id_seq)
     }
 
     pub fn poll(&self) -> Vec<(u32, String, Value)> {

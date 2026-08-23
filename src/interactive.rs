@@ -116,10 +116,10 @@ pub fn run() {
         }
     };
 
-    let _ = observer.observe("playlist");
-    let _ = observer.observe("pause");
-    let _ = observer.observe("time-pos");
-    let _ = observer.observe("duration");
+    let playlist_oid = observer.observe("playlist").unwrap();
+    let pause_oid = observer.observe("pause").unwrap();
+    let time_oid = observer.observe("time-pos").unwrap();
+    let duration_oid = observer.observe("duration").unwrap();
 
     if let Ok(playlist) = control::get_playlist() {
         state.playlist = playlist;
@@ -151,16 +151,16 @@ pub fn run() {
         }
 
         for (id, _name, data) in observer.poll() {
-            match id {
-                1 => {
-                    if let Ok(playlist) = serde_json::from_value(data) {
-                        state.playlist = playlist;
-                    }
+            if id == playlist_oid {
+                if let Ok(playlist) = serde_json::from_value(data) {
+                    state.playlist = playlist;
                 }
-                2 => state.paused = data.as_bool().unwrap_or(false),
-                3 => state.time = data.as_f64().unwrap_or(0.0),
-                4 => state.duration = data.as_f64().unwrap_or(0.0),
-                _ => {}
+            } else if id == pause_oid {
+                state.paused = data.as_bool().unwrap_or(false);
+            } else if id == time_oid {
+                state.time = data.as_f64().unwrap_or(0.0);
+            } else if id == duration_oid {
+                state.duration = data.as_f64().unwrap_or(0.0);
             }
         }
     }
