@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Fixed
+
+- `mpvd pick` empty search results.
+
 ## [2.1.1] - 2026-08-23
 
 ### Changed

@@ -123,6 +123,9 @@ impl Picker {
     }
 
     fn toggle_push(&mut self) {
+        if self.view.cursor >= self.filtered.len() {
+            return;
+        }
         let idx = self.filtered[self.view.cursor];
         if self.to_insert.contains(&idx) {
             self.to_insert.remove(&idx);
@@ -135,6 +138,9 @@ impl Picker {
     }
 
     fn toggle_insert(&mut self) {
+        if self.view.cursor >= self.filtered.len() {
+            return;
+        }
         let idx = self.filtered[self.view.cursor];
         self.to_push.remove(&idx);
         if self.to_insert.contains(&idx) {
@@ -284,6 +290,14 @@ fn render(f: &mut Frame, picker: &Picker, term_height: u16) {
         Paragraph::new(items),
         Rect::new(0, 0, area.width, list_height as u16),
     );
+
+    if picker.filtered.is_empty() {
+        let empty_msg = Line::from(Span::styled(
+            "No matches.",
+            Style::default().add_modifier(Modifier::ITALIC).dim(),
+        ));
+        f.render_widget(empty_msg, Rect::new(0, 0, area.width, list_height as u16));
+    }
 
     if picker.search_mode {
         let before: String = picker.search.chars().take(picker.search_cursor).collect();
