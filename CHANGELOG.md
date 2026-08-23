@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-08-23
+
 ### Changed
 
 - `mpvd pick` sorts audio files by name.
@@ -89,7 +91,8 @@ and this project adheres to
 - `remove`/`rm` subcommand
 - `send` subcommand
 
-[unreleased]: https://github.com/rasmusmerzin/mpvd/compare/v2.1.0...main
+[unreleased]: https://github.com/rasmusmerzin/mpvd/compare/v2.1.1...main
+[2.1.1]: https://github.com/rasmusmerzin/mpvd/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/rasmusmerzin/mpvd/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/rasmusmerzin/mpvd/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/rasmusmerzin/mpvd/compare/v0.5.0...v1.0.0
