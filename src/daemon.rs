@@ -32,8 +32,7 @@ fn process_alive(pid: u32) -> bool {
 }
 
 fn is_zombie(pid: u32) -> bool {
-    let Ok(stat) = fs::read_to_string(Path::new("/proc").join(pid.to_string()).join("stat"))
-    else {
+    let Ok(stat) = fs::read_to_string(Path::new("/proc").join(pid.to_string()).join("stat")) else {
         return false;
     };
     // The state character follows the comm field, which may contain parens
@@ -45,18 +44,14 @@ fn is_zombie(pid: u32) -> bool {
 
 pub fn start() -> ExitCode {
     if get_pid().is_some() {
-        eprintln!("mpv daemon is already running");
-        return ExitCode::from(1);
+        return ExitCode::from(2);
     }
     let sock = config::mpvd_sock();
     let pid_path = config::mpvd_pid();
 
     let mut fds = [0 as libc::c_int; 2];
     if unsafe { libc::pipe(fds.as_mut_ptr()) } != 0 {
-        eprintln!(
-            "failed to create pipe: {}",
-            std::io::Error::last_os_error()
-        );
+        eprintln!("failed to create pipe: {}", std::io::Error::last_os_error());
         return ExitCode::from(1);
     }
     // Keep the handshake fds out of mpv's inherited descriptor table so the
@@ -166,8 +161,7 @@ fn ignore_signals() {
 
 fn detach_stdio() {
     let devnull = b"/dev/null\0";
-    let fd =
-        unsafe { libc::open(devnull.as_ptr().cast(), libc::O_RDWR) };
+    let fd = unsafe { libc::open(devnull.as_ptr().cast(), libc::O_RDWR) };
     if fd < 0 {
         return;
     }
@@ -222,9 +216,7 @@ fn wait_child(pid: libc::pid_t) {
     loop {
         let mut status = 0;
         let reaped = unsafe { libc::waitpid(pid, &mut status, 0) };
-        if reaped < 0
-            && std::io::Error::last_os_error().raw_os_error() == Some(libc::EINTR)
-        {
+        if reaped < 0 && std::io::Error::last_os_error().raw_os_error() == Some(libc::EINTR) {
             continue;
         }
         break;

@@ -142,8 +142,9 @@ fn time_string(seconds: bool, duration: bool) -> Result<String, String> {
             .and_then(|t| control::get_duration().map(|d| control::format_time_string(t, d))),
         (true, false) => control::get_time().map(|t| t.to_string()),
         (false, true) => control::get_duration().map(|d| d.to_string()),
-        (true, true) => control::get_time()
-            .and_then(|t| control::get_duration().map(|d| format!("{t}/{d}"))),
+        (true, true) => {
+            control::get_time().and_then(|t| control::get_duration().map(|d| format!("{t}/{d}")))
+        }
     }
 }
 
@@ -161,7 +162,13 @@ fn main() -> ExitCode {
             interactive::run();
             ExitCode::SUCCESS
         }
-        Some(Commands::Init) => daemon::start(),
+        Some(Commands::Init) => {
+            let code = daemon::start();
+            if code == ExitCode::from(2) {
+                eprintln!("mpv daemon is already running");
+            }
+            code
+        }
         Some(Commands::Kill) => daemon::kill(),
         Some(Commands::Pid) => daemon::pid(),
         Some(Commands::Env) => {
