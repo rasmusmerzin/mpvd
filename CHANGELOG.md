@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- `mpvd pick` sorts audio files by name.
+
 ## [2.1.0] - 2026-08-23
 
 ### Added

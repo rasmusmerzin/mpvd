@@ -194,7 +194,8 @@ impl Picker {
 
 pub fn run(dir: &str) {
     let dir = config::resolve_tilde(dir);
-    let files = find::find_files(&dir);
+    let mut files = find::find_files(&dir);
+    files.sort();
     if files.is_empty() {
         eprintln!("no audio files found in {}", dir.display());
         return;
@@ -457,7 +458,7 @@ fn submit(picker: &Picker) {
     }
     let started = daemon::start();
     if started == ExitCode::SUCCESS {
-        sleep(Duration::from_millis(200));
+        sleep(Duration::from_millis(400));
     }
     let mut push_indices: Vec<usize> = picker.to_push.iter().copied().collect();
     push_indices.sort_unstable();
