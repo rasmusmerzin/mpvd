@@ -97,7 +97,7 @@ impl PlaylistState {
 pub fn run() {
     let started = daemon::start();
     if started == ExitCode::SUCCESS {
-        sleep(Duration::from_millis(200));
+        sleep(Duration::from_millis(400));
     }
     enable_raw_mode().unwrap();
     let mut stdout = io::stdout();
