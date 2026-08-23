@@ -12,11 +12,13 @@ and this project adheres to
 
 - `mpvd push` starts the daemon if not already started.
 - `mpvd init` probes readiness of socket and waits until socket is ready.
+- `mpvd pick` ignores hidden files.
 
 ### Fixed
 
+- `mpvd pick` ignores cyclical links.
 - `mpvd ls | head` will not panic.
-- `mpvd pick` empty search results.
+- `mpvd pick` empty search results will not panic.
 - Replace hardcoded observe ids with generated ones in interactive playlist.
 - Update scroll and cursor when playlist is modified externally.
 
