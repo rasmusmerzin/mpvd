@@ -2,7 +2,17 @@
 
 MPV music player daemon controller CLI.
 
-## Build
+## Install
+
+Install v2 of `mpvd` with `cargo`:
+
+```sh
+cargo install mpvd
+```
+
+> If you want to install v1, run `npm i -g @merzin/mpvd`.
+
+## Build from source
 
 ```sh
 cargo build --release

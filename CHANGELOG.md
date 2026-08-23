@@ -8,9 +8,12 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-08-23
+
 ### Added
 
-- Supervisor to `mpv` daemon process. When `mpv` is killed directly, MPVD_PID and MPVD_SOCK are removed.
+- Supervisor to `mpv` daemon process. `MPVD_PID` and `MPVD_SOCK` are removed
+  when `mpv` is killed directly as well.
 
 ## [2.0.0] - 2026-08-21
 
@@ -82,7 +85,8 @@ and this project adheres to
 - `remove`/`rm` subcommand
 - `send` subcommand
 
-[unreleased]: https://github.com/rasmusmerzin/mpvd/compare/v2.0.0...main
+[unreleased]: https://github.com/rasmusmerzin/mpvd/compare/v2.1.0...main
+[2.1.0]: https://github.com/rasmusmerzin/mpvd/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/rasmusmerzin/mpvd/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/rasmusmerzin/mpvd/compare/v0.5.0...v1.0.0
 [0.5.0]: https://github.com/rasmusmerzin/mpvd/compare/v0.4.0...v0.5.0
