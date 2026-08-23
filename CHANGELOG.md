@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- `mpvd init` probes readiness of socket and waits until socket is ready.
+
 ### Fixed
 
 - `mpvd pick` empty search results.

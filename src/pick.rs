@@ -1,8 +1,6 @@
 use std::collections::HashSet;
 use std::io;
 use std::path::PathBuf;
-use std::process::ExitCode;
-use std::thread::sleep;
 use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
@@ -470,10 +468,8 @@ fn submit(picker: &Picker) {
     if picker.to_push.is_empty() && picker.to_insert.is_empty() {
         return;
     }
-    let started = daemon::start();
-    if started == ExitCode::SUCCESS {
-        sleep(Duration::from_millis(400));
-    }
+    // start() only returns once a newly spawned daemon's IPC socket is ready
+    daemon::start();
     let mut push_indices: Vec<usize> = picker.to_push.iter().copied().collect();
     push_indices.sort_unstable();
     let mut insert_indices: Vec<usize> = picker.to_insert.iter().copied().collect();

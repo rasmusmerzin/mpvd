@@ -1,7 +1,10 @@
 use std::fs;
+use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
 use std::sync::atomic::{AtomicI32, AtomicU32, Ordering};
+use std::thread::sleep;
+use std::time::{Duration, Instant};
 
 use crate::config;
 
@@ -128,6 +131,13 @@ fn supervise(sock: &Path, pid_path: &Path, fds: [libc::c_int; 2]) -> ! {
         fail(wfd, &format!("failed to write pid file: {e}"));
     }
 
+    // mpv creates the IPC socket asynchronously after spawn, and the
+    // handshake must only report success once the daemon is usable
+    if !await_socket(sock, Duration::from_secs(10)) {
+        let _ = child.kill();
+        fail(wfd, "mpv failed to create IPC socket");
+    }
+
     write_status(wfd, STATUS_OK, "");
     unsafe { libc::close(wfd) };
     wait_child(pid as i32);
@@ -136,6 +146,23 @@ fn supervise(sock: &Path, pid_path: &Path, fds: [libc::c_int; 2]) -> ! {
     let _ = fs::remove_file(sock);
     let _ = fs::remove_file(pid_path);
     unsafe { libc::_exit(0) }
+}
+
+/// Probe readiness with real connect attempts rather than socket file
+/// existence: there is a window between bind and listen where connecting
+/// to an existing inode is still refused
+fn await_socket(sock: &Path, timeout: Duration) -> bool {
+    let deadline = Instant::now() + timeout;
+    loop {
+        if let Ok(stream) = UnixStream::connect(sock) {
+            drop(stream);
+            return true;
+        }
+        if Instant::now() >= deadline {
+            return false;
+        }
+        sleep(Duration::from_millis(25));
+    }
 }
 
 /// Parent side of the handshake: reads the supervisor's status report without

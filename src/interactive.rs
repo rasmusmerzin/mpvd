@@ -1,6 +1,4 @@
 use std::io;
-use std::process::ExitCode;
-use std::thread::sleep;
 use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
@@ -95,10 +93,8 @@ impl PlaylistState {
 }
 
 pub fn run() {
-    let started = daemon::start();
-    if started == ExitCode::SUCCESS {
-        sleep(Duration::from_millis(400));
-    }
+    // start() only returns once a newly spawned daemon's IPC socket is ready
+    daemon::start();
     enable_raw_mode().unwrap();
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen).unwrap();
