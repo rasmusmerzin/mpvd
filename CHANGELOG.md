@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- Supervisor to `mpv` daemon process. When `mpv` is killed directly, MPVD_PID and MPVD_SOCK are removed.
+
 ## [2.0.0] - 2026-08-21
 
 ### Changed

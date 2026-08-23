@@ -1,11 +1,26 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
+use std::sync::atomic::{AtomicI32, AtomicU32, Ordering};
 
 use crate::config;
 
 const STATUS_OK: u8 = b'1';
 const STATUS_ERR: u8 = b'0';
+
+/// mpv's pid once spawned, so the signal handler can relay signals to it
+static CHILD_PID: AtomicU32 = AtomicU32::new(0);
+/// Termination signal caught before mpv existed yet, 0 when none
+static PENDING_SIG: AtomicI32 = AtomicI32::new(0);
+
+extern "C" fn on_termination(sig: libc::c_int) {
+    PENDING_SIG.store(sig, Ordering::SeqCst);
+    let pid = CHILD_PID.load(Ordering::SeqCst);
+    if pid != 0 {
+        // Relay to mpv; the waitpid loop then runs the usual cleanup
+        unsafe { libc::kill(pid as i32, sig) };
+    }
+}
 
 pub fn get_pid() -> Option<u32> {
     let content = fs::read_to_string(config::mpvd_pid()).ok()?;
@@ -83,7 +98,7 @@ fn supervise(sock: &Path, pid_path: &Path, fds: [libc::c_int; 2]) -> ! {
         // Daemonize: create a new session and detach from terminal
         libc::setsid();
     }
-    ignore_signals();
+    install_signal_handlers();
     detach_stdio();
 
     let Ok(mut child) = Command::new("mpv")
@@ -102,6 +117,12 @@ fn supervise(sock: &Path, pid_path: &Path, fds: [libc::c_int; 2]) -> ! {
     };
 
     let pid = child.id();
+    CHILD_PID.store(pid, Ordering::SeqCst);
+    // A signal may have slipped in between fork and spawn
+    let pending = PENDING_SIG.swap(0, Ordering::SeqCst);
+    if pending != 0 {
+        unsafe { libc::kill(pid as i32, pending) };
+    }
     if let Err(e) = fs::write(pid_path, format!("{pid}\n")) {
         let _ = child.kill();
         fail(wfd, &format!("failed to write pid file: {e}"));
@@ -148,12 +169,14 @@ fn fail(wfd: libc::c_int, msg: &str) -> ! {
     unsafe { libc::_exit(1) }
 }
 
-/// Keep the trap alive: stray terminal signals must not kill the supervisor
-/// before it gets to clean up after mpv
-fn ignore_signals() {
+/// Trap termination signals by relaying them to mpv, so `pkill mpvd` and
+/// friends tear the whole daemon down through the regular death-and-cleanup
+/// path instead of orphaning it
+fn install_signal_handlers() {
     let mut sa: libc::sigaction = unsafe { std::mem::zeroed() };
-    sa.sa_sigaction = libc::SIG_IGN;
+    sa.sa_sigaction = on_termination as extern "C" fn(libc::c_int) as usize;
     unsafe { libc::sigemptyset(&mut sa.sa_mask) };
+    sa.sa_flags = libc::SA_RESTART;
     for sig in [libc::SIGHUP, libc::SIGINT, libc::SIGTERM] {
         unsafe { libc::sigaction(sig, &sa, std::ptr::null_mut()) };
     }
