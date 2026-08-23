@@ -12,6 +12,7 @@ and this project adheres to
 
 - `mpvd pick` empty search results.
 - Replace hardcoded observe ids with generated ones in interactive playlist.
+- Update scroll and cursor when playlist is modified externally.
 
 ## [2.1.1] - 2026-08-23
 

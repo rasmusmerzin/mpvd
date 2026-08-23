@@ -154,6 +154,7 @@ pub fn run() {
             if id == playlist_oid {
                 if let Ok(playlist) = serde_json::from_value(data) {
                     state.playlist = playlist;
+                    state.clamp_scroll(term_height);
                 }
             } else if id == pause_oid {
                 state.paused = data.as_bool().unwrap_or(false);
