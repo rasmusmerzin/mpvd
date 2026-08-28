@@ -27,7 +27,11 @@ fn walk(dir: &Path, seen: &mut HashSet<(u64, u64)>) -> Vec<PathBuf> {
     let mut results = Vec::new();
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
-            if entry.file_name().to_str().is_some_and(|n| n.starts_with('.')) {
+            if entry
+                .file_name()
+                .to_str()
+                .is_some_and(|n| n.starts_with('.'))
+            {
                 continue;
             }
             let path = entry.path();
