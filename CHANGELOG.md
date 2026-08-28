@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- Refactored `ListView`.
+
 ## [2.2.0] - 2026-08-23
 
 ### Changed

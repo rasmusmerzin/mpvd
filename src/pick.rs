@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::io;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -39,7 +38,7 @@ impl Picker {
     fn new(files: Vec<PathBuf>) -> Self {
         let len = files.len();
         Self {
-            view: ListView::new(),
+            view: ListView::new(len),
             original: files.clone(),
             filtered: (0..len).collect(),
             files,
@@ -53,52 +52,7 @@ impl Picker {
         }
     }
 
-    fn clamp_scroll(&mut self, term_height: u16) {
-        self.view.clamp_scroll(self.filtered.len(), term_height);
-    }
-
-    fn cursor_up(&mut self, term_height: u16) {
-        self.view.cursor_up(self.filtered.len(), term_height);
-    }
-
-    fn cursor_down(&mut self, term_height: u16) {
-        self.view.cursor_down(self.filtered.len(), term_height);
-    }
-
-    fn scroll_up(&mut self, amount: usize) {
-        self.view.scroll_up(amount);
-    }
-
-    fn scroll_down(&mut self, amount: usize, term_height: u16) {
-        self.view
-            .scroll_down(amount, self.filtered.len(), term_height);
-    }
-
-    fn page_up(&mut self, term_height: u16) {
-        self.view.page_up(self.filtered.len(), term_height);
-    }
-
-    fn page_down(&mut self, term_height: u16) {
-        self.view.page_down(self.filtered.len(), term_height);
-    }
-
-    fn go_top(&mut self) {
-        self.view.go_top();
-    }
-
-    fn go_bottom(&mut self, term_height: u16) {
-        self.view.go_bottom(self.filtered.len(), term_height);
-    }
-
-    fn cursor_home(&mut self) {
-        self.view.cursor_home();
-    }
-
-    fn cursor_end(&mut self, term_height: u16) {
-        self.view.cursor_end(self.filtered.len(), term_height);
-    }
-
-    fn update_filter(&mut self, term_height: u16) {
+    fn update_filter(&mut self) {
         self.filtered = if self.search.is_empty() {
             (0..self.files.len()).collect()
         } else {
@@ -117,7 +71,8 @@ impl Picker {
                 Err(_) => (0..self.files.len()).collect(),
             }
         };
-        self.clamp_scroll(term_height);
+        self.view.count = self.filtered.len();
+        self.view.clamp_scroll();
     }
 
     fn toggle_push(&mut self) {
@@ -148,7 +103,7 @@ impl Picker {
         }
     }
 
-    fn shuffle(&mut self, term_height: u16) {
+    fn shuffle(&mut self) {
         use rand::seq::SliceRandom;
         self.files = self.original.clone();
         if self.shuffled {
@@ -157,7 +112,7 @@ impl Picker {
             self.files.shuffle(&mut rand::rng());
             self.shuffled = true;
         }
-        self.update_filter(term_height);
+        self.update_filter();
     }
 
     fn search_len(&self) -> usize {
@@ -206,26 +161,24 @@ pub fn run(dir: &str) {
     }
 
     enable_raw_mode().unwrap();
-    let mut stdout = io::stdout();
+    let mut stdout = std::io::stdout();
     execute!(stdout, EnterAlternateScreen).unwrap();
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).unwrap();
 
     let mut picker = Picker::new(files);
-    let term_height = terminal.size().unwrap().height;
-    picker.clamp_scroll(term_height);
 
     loop {
-        let term_height = terminal.size().unwrap().height;
-        terminal.draw(|f| render(f, &picker, term_height)).unwrap();
+        picker.view.resize();
+        terminal.draw(|f| render(f, &picker)).ok();
 
         if event::poll(Duration::from_millis(100)).unwrap()
             && let Event::Key(key) = event::read().unwrap()
         {
             let done = if picker.search_mode {
-                handle_search_input(&mut picker, key, term_height)
+                handle_search_input(&mut picker, key)
             } else {
-                handle_main_input(&mut picker, key, term_height)
+                handle_main_input(&mut picker, key)
             };
             if done.is_some() {
                 break;
@@ -233,20 +186,19 @@ pub fn run(dir: &str) {
         }
     }
 
-    disable_raw_mode().unwrap();
-    execute!(terminal.backend_mut(), LeaveAlternateScreen).unwrap();
-    terminal.show_cursor().unwrap();
+    disable_raw_mode().ok();
+    execute!(terminal.backend_mut(), LeaveAlternateScreen).ok();
+    terminal.show_cursor().ok();
 
     submit(&picker);
 }
 
-fn render(f: &mut Frame, picker: &Picker, term_height: u16) {
+fn render(f: &mut Frame, picker: &Picker) {
     let area = f.area();
-    let list_height = ListView::list_height(term_height);
 
     let items: Vec<Line> = picker.filtered[picker.view.offset..]
         .iter()
-        .take(list_height)
+        .take(picker.view.height)
         .enumerate()
         .map(|(i, &file_idx)| {
             let file = &picker.files[file_idx];
@@ -286,7 +238,7 @@ fn render(f: &mut Frame, picker: &Picker, term_height: u16) {
 
     f.render_widget(
         Paragraph::new(items),
-        Rect::new(0, 0, area.width, list_height as u16),
+        Rect::new(0, 0, area.width, picker.view.height as u16),
     );
 
     if picker.filtered.is_empty() {
@@ -294,7 +246,10 @@ fn render(f: &mut Frame, picker: &Picker, term_height: u16) {
             "No matches.",
             Style::default().add_modifier(Modifier::ITALIC).dim(),
         ));
-        f.render_widget(empty_msg, Rect::new(0, 0, area.width, list_height as u16));
+        f.render_widget(
+            empty_msg,
+            Rect::new(0, 0, area.width, picker.view.height as u16),
+        );
     }
 
     if picker.search_mode {
@@ -324,33 +279,39 @@ fn render(f: &mut Frame, picker: &Picker, term_height: u16) {
             spans.push(Span::raw(after));
         }
         let search_line = Line::from(spans);
-        f.render_widget(search_line, Rect::new(0, list_height as u16, area.width, 1));
+        f.render_widget(
+            search_line,
+            Rect::new(0, picker.view.height as u16, area.width, 1),
+        );
     } else if !picker.search.is_empty() {
         let search_line = Line::from(Span::raw(format!("/{}", picker.search)));
-        f.render_widget(search_line, Rect::new(0, list_height as u16, area.width, 1));
+        f.render_widget(
+            search_line,
+            Rect::new(0, picker.view.height as u16, area.width, 1),
+        );
     }
 }
 
-fn handle_main_input(picker: &mut Picker, key: KeyEvent, term_height: u16) -> Option<bool> {
+fn handle_main_input(picker: &mut Picker, key: KeyEvent) -> Option<bool> {
     let has_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
 
     match key.code {
         KeyCode::Esc | KeyCode::Char('q') => return Some(false),
         KeyCode::Char('c') if has_ctrl => return Some(false),
-        KeyCode::Char('e') if has_ctrl => picker.scroll_down(1, term_height),
-        KeyCode::Char('y') if has_ctrl => picker.scroll_up(1),
-        KeyCode::Char('d') if has_ctrl => picker.page_down(term_height),
-        KeyCode::Char('u') if has_ctrl => picker.page_up(term_height),
-        KeyCode::Char('H') => picker.cursor_home(),
-        KeyCode::Char('L') => picker.cursor_end(term_height),
-        KeyCode::Down | KeyCode::Char('j') => picker.cursor_down(term_height),
-        KeyCode::Char('n') if has_ctrl => picker.cursor_down(term_height),
-        KeyCode::Up | KeyCode::Char('k') => picker.cursor_up(term_height),
-        KeyCode::Char('p') if has_ctrl => picker.cursor_up(term_height),
-        KeyCode::Char('g') => picker.go_top(),
-        KeyCode::Char('G') => picker.go_bottom(term_height),
+        KeyCode::Char('e') if has_ctrl => picker.view.scroll_down(1),
+        KeyCode::Char('y') if has_ctrl => picker.view.scroll_up(1),
+        KeyCode::Char('d') if has_ctrl => picker.view.page_down(),
+        KeyCode::Char('u') if has_ctrl => picker.view.page_up(),
+        KeyCode::Char('H') => picker.view.cursor_home(),
+        KeyCode::Char('L') => picker.view.cursor_end(),
+        KeyCode::Down | KeyCode::Char('j') => picker.view.cursor_down(),
+        KeyCode::Char('n') if has_ctrl => picker.view.cursor_down(),
+        KeyCode::Up | KeyCode::Char('k') => picker.view.cursor_up(),
+        KeyCode::Char('p') if has_ctrl => picker.view.cursor_up(),
+        KeyCode::Char('g') => picker.view.go_top(),
+        KeyCode::Char('G') => picker.view.go_bottom(),
         KeyCode::Char('f') => picker.absolute = !picker.absolute,
-        KeyCode::Char('r') => picker.shuffle(term_height),
+        KeyCode::Char('r') => picker.shuffle(),
         KeyCode::Char(' ') | KeyCode::Tab => picker.toggle_push(),
         KeyCode::Char('i') => picker.toggle_insert(),
         KeyCode::Enter => return Some(true),
@@ -360,23 +321,23 @@ fn handle_main_input(picker: &mut Picker, key: KeyEvent, term_height: u16) -> Op
     None
 }
 
-fn cancel_search(picker: &mut Picker, term_height: u16) {
+fn cancel_search(picker: &mut Picker) {
     picker.search.clear();
     picker.search_cursor = 0;
     picker.search_mode = false;
-    picker.update_filter(term_height);
+    picker.update_filter();
 }
 
-fn handle_search_input(picker: &mut Picker, key: KeyEvent, term_height: u16) -> Option<bool> {
+fn handle_search_input(picker: &mut Picker, key: KeyEvent) -> Option<bool> {
     let has_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
 
     match key.code {
         KeyCode::Enter => {
             picker.search_mode = false;
-            picker.update_filter(term_height);
+            picker.update_filter();
         }
-        KeyCode::Esc => cancel_search(picker, term_height),
-        KeyCode::Char('c') if has_ctrl => cancel_search(picker, term_height),
+        KeyCode::Esc => cancel_search(picker),
+        KeyCode::Char('c') if has_ctrl => cancel_search(picker),
         KeyCode::Home => picker.search_cursor = 0,
         KeyCode::Char('a') if has_ctrl => picker.search_cursor = 0,
         KeyCode::End => picker.search_cursor = picker.search_len(),
@@ -387,7 +348,7 @@ fn handle_search_input(picker: &mut Picker, key: KeyEvent, term_height: u16) -> 
                 chars.drain(target..cur);
             });
             picker.search_cursor = target;
-            picker.update_filter(term_height);
+            picker.update_filter();
         }
         KeyCode::Left if has_ctrl => {
             picker.search_cursor = picker.search_word_start(picker.search_cursor);
@@ -414,11 +375,11 @@ fn handle_search_input(picker: &mut Picker, key: KeyEvent, term_height: u16) -> 
                 chars.drain(..cur);
             });
             picker.search_cursor = 0;
-            picker.update_filter(term_height);
+            picker.update_filter();
         }
         KeyCode::Char('k') if has_ctrl => {
             picker.edit_search(|chars, cur| chars.truncate(cur));
-            picker.update_filter(term_height);
+            picker.update_filter();
         }
         KeyCode::Backspace => {
             if picker.search_cursor > 0 {
@@ -426,7 +387,7 @@ fn handle_search_input(picker: &mut Picker, key: KeyEvent, term_height: u16) -> 
                 picker.edit_search(|chars, cur| {
                     chars.remove(cur);
                 });
-                picker.update_filter(term_height);
+                picker.update_filter();
             }
         }
         KeyCode::Char('h') if has_ctrl => {
@@ -435,7 +396,7 @@ fn handle_search_input(picker: &mut Picker, key: KeyEvent, term_height: u16) -> 
                 picker.edit_search(|chars, cur| {
                     chars.remove(cur);
                 });
-                picker.update_filter(term_height);
+                picker.update_filter();
             }
         }
         KeyCode::Delete => {
@@ -444,7 +405,7 @@ fn handle_search_input(picker: &mut Picker, key: KeyEvent, term_height: u16) -> 
                     chars.remove(cur);
                 }
             });
-            picker.update_filter(term_height);
+            picker.update_filter();
         }
         KeyCode::Char('d') if has_ctrl => {
             picker.edit_search(|chars, cur| {
@@ -452,12 +413,12 @@ fn handle_search_input(picker: &mut Picker, key: KeyEvent, term_height: u16) -> 
                     chars.remove(cur);
                 }
             });
-            picker.update_filter(term_height);
+            picker.update_filter();
         }
         KeyCode::Char(c) if !has_ctrl => {
             picker.edit_search(|chars, cur| chars.insert(cur, c));
             picker.search_cursor += 1;
-            picker.update_filter(term_height);
+            picker.update_filter();
         }
         _ => {}
     }

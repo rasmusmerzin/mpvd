@@ -31,7 +31,7 @@ struct PlaylistState {
 impl PlaylistState {
     fn new() -> Self {
         Self {
-            view: ListView::new(),
+            view: ListView::new(0),
             playlist: Vec::new(),
             paused: false,
             time: 0.0,
@@ -40,55 +40,10 @@ impl PlaylistState {
         }
     }
 
-    fn clamp_scroll(&mut self, term_height: u16) {
-        self.view.clamp_scroll(self.playlist.len(), term_height);
-    }
-
     fn current_index(&self) -> Option<usize> {
         self.playlist
             .iter()
             .position(|item| item.current.unwrap_or(false))
-    }
-
-    fn cursor_up(&mut self, term_height: u16) {
-        self.view.cursor_up(self.playlist.len(), term_height);
-    }
-
-    fn cursor_down(&mut self, term_height: u16) {
-        self.view.cursor_down(self.playlist.len(), term_height);
-    }
-
-    fn scroll_up(&mut self, amount: usize) {
-        self.view.scroll_up(amount);
-    }
-
-    fn scroll_down(&mut self, amount: usize, term_height: u16) {
-        self.view
-            .scroll_down(amount, self.playlist.len(), term_height);
-    }
-
-    fn page_up(&mut self, term_height: u16) {
-        self.view.page_up(self.playlist.len(), term_height);
-    }
-
-    fn page_down(&mut self, term_height: u16) {
-        self.view.page_down(self.playlist.len(), term_height);
-    }
-
-    fn go_top(&mut self) {
-        self.view.go_top();
-    }
-
-    fn go_bottom(&mut self, term_height: u16) {
-        self.view.go_bottom(self.playlist.len(), term_height);
-    }
-
-    fn cursor_home(&mut self) {
-        self.view.cursor_home();
-    }
-
-    fn cursor_end(&mut self, term_height: u16) {
-        self.view.cursor_end(self.playlist.len(), term_height);
     }
 }
 
@@ -96,7 +51,7 @@ pub fn run() {
     // start() only returns once a newly spawned daemon's IPC socket is ready
     daemon::start();
     enable_raw_mode().unwrap();
-    let mut stdout = io::stdout();
+    let mut stdout = std::io::stdout();
     execute!(stdout, EnterAlternateScreen).unwrap();
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).unwrap();
@@ -119,10 +74,10 @@ pub fn run() {
 
     if let Ok(playlist) = control::get_playlist() {
         state.playlist = playlist;
+        state.view.count = state.playlist.len();
         if let Some(pos) = state.current_index() {
             state.view.cursor = pos;
-            let term_height = terminal.size().unwrap().height;
-            state.clamp_scroll(term_height);
+            state.view.clamp_scroll();
         }
     }
     if let Ok(p) = control::get_pause() {
@@ -136,12 +91,12 @@ pub fn run() {
     }
 
     loop {
-        let term_height = terminal.size().unwrap().height;
-        terminal.draw(|f| render(f, &state, term_height)).unwrap();
+        state.view.resize();
+        terminal.draw(|f| render(f, &state)).unwrap();
 
         if event::poll(Duration::from_millis(50)).unwrap()
             && let Event::Key(key) = event::read().unwrap()
-            && handle_input(&mut state, &mut terminal, key, term_height)
+            && handle_input(&mut state, &mut terminal, key)
         {
             break;
         }
@@ -150,7 +105,8 @@ pub fn run() {
             if id == playlist_oid {
                 if let Ok(playlist) = serde_json::from_value(data) {
                     state.playlist = playlist;
-                    state.clamp_scroll(term_height);
+                    state.view.count = state.playlist.len();
+                    state.view.clamp_scroll();
                 }
             } else if id == pause_oid {
                 state.paused = data.as_bool().unwrap_or(false);
@@ -166,9 +122,9 @@ pub fn run() {
 }
 
 fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) {
-    let _ = disable_raw_mode();
-    let _ = execute!(terminal.backend_mut(), LeaveAlternateScreen);
-    let _ = terminal.show_cursor();
+    disable_raw_mode().ok();
+    execute!(terminal.backend_mut(), LeaveAlternateScreen).ok();
+    terminal.show_cursor().ok();
 }
 
 fn track_name(item: &control::PlaylistItem, absolute: bool) -> String {
@@ -194,20 +150,22 @@ fn row_style(is_hover: bool, is_current: bool) -> Style {
     }
 }
 
-fn render(f: &mut Frame, state: &PlaylistState, term_height: u16) {
+fn render(f: &mut Frame, state: &PlaylistState) {
     let area = f.area();
-    let list_height = ListView::list_height(term_height);
 
     if state.playlist.is_empty() {
         let empty_msg = Line::from(Span::styled(
             "Playlist is empty. Press p to pick files.",
             Style::default().add_modifier(Modifier::ITALIC).dim(),
         ));
-        f.render_widget(empty_msg, Rect::new(0, 0, area.width, list_height as u16));
+        f.render_widget(
+            empty_msg,
+            Rect::new(0, 0, area.width, state.view.height as u16),
+        );
     } else {
         let items: Vec<Line> = state.playlist[state.view.offset..]
             .iter()
-            .take(list_height)
+            .take(state.view.height)
             .enumerate()
             .map(|(i, item)| {
                 let idx = i + state.view.offset;
@@ -242,7 +200,7 @@ fn render(f: &mut Frame, state: &PlaylistState, term_height: u16) {
             .collect();
 
         let list = Paragraph::new(items);
-        f.render_widget(list, Rect::new(0, 0, area.width, list_height as u16));
+        f.render_widget(list, Rect::new(0, 0, area.width, state.view.height as u16));
     }
 
     if let Some(current) = state.current_index()
@@ -262,11 +220,14 @@ fn render(f: &mut Frame, state: &PlaylistState, term_height: u16) {
         let status_line = Line::from(Span::raw(format!(
             "{index_str}{cursor}{name_padded}{time_str}"
         )));
-        f.render_widget(status_line, Rect::new(0, list_height as u16, area.width, 1));
+        f.render_widget(
+            status_line,
+            Rect::new(0, state.view.height as u16, area.width, 1),
+        );
     }
 }
 
-fn move_track(state: &mut PlaylistState, term_height: u16, down: bool) {
+fn move_track(state: &mut PlaylistState, down: bool) {
     let position = state.view.cursor;
     if down {
         if position + 1 >= state.playlist.len() {
@@ -283,9 +244,9 @@ fn move_track(state: &mut PlaylistState, term_height: u16, down: bool) {
         state.playlist = playlist;
     }
     if down {
-        state.cursor_down(term_height);
+        state.view.cursor_down();
     } else {
-        state.cursor_up(term_height);
+        state.view.cursor_up();
     }
 }
 
@@ -293,7 +254,6 @@ fn handle_input(
     state: &mut PlaylistState,
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     key: KeyEvent,
-    term_height: u16,
 ) -> bool {
     let m = key.modifiers;
     let has_ctrl = m.contains(KeyModifiers::CONTROL);
@@ -302,24 +262,24 @@ fn handle_input(
     match key.code {
         KeyCode::Esc | KeyCode::Char('q') => return true,
         KeyCode::Char('c') if has_ctrl => return true,
-        KeyCode::Char('e') if has_ctrl => state.scroll_down(1, term_height),
-        KeyCode::Char('y') if has_ctrl => state.scroll_up(1),
-        KeyCode::Char('d') if has_ctrl => state.page_down(term_height),
-        KeyCode::Char('u') if has_ctrl => state.page_up(term_height),
-        KeyCode::Char('H') => state.cursor_home(),
-        KeyCode::Char('L') => state.cursor_end(term_height),
-        KeyCode::Char('j') if !has_shift => state.cursor_down(term_height),
-        KeyCode::Char('n') if has_ctrl => state.cursor_down(term_height),
-        KeyCode::Char('k') if !has_shift => state.cursor_up(term_height),
-        KeyCode::Char('p') if has_ctrl => state.cursor_up(term_height),
-        KeyCode::Down if !has_shift => state.cursor_down(term_height),
-        KeyCode::Up if !has_shift => state.cursor_up(term_height),
-        KeyCode::Down if has_shift => move_track(state, term_height, true),
-        KeyCode::Up if has_shift => move_track(state, term_height, false),
-        KeyCode::Char('J') => move_track(state, term_height, true),
-        KeyCode::Char('K') => move_track(state, term_height, false),
-        KeyCode::Char('g') => state.go_top(),
-        KeyCode::Char('G') => state.go_bottom(term_height),
+        KeyCode::Char('e') if has_ctrl => state.view.scroll_down(1),
+        KeyCode::Char('y') if has_ctrl => state.view.scroll_up(1),
+        KeyCode::Char('d') if has_ctrl => state.view.page_down(),
+        KeyCode::Char('u') if has_ctrl => state.view.page_up(),
+        KeyCode::Char('H') => state.view.cursor_home(),
+        KeyCode::Char('L') => state.view.cursor_end(),
+        KeyCode::Char('j') if !has_shift => state.view.cursor_down(),
+        KeyCode::Char('n') if has_ctrl => state.view.cursor_down(),
+        KeyCode::Char('k') if !has_shift => state.view.cursor_up(),
+        KeyCode::Char('p') if has_ctrl => state.view.cursor_up(),
+        KeyCode::Down if !has_shift => state.view.cursor_down(),
+        KeyCode::Up if !has_shift => state.view.cursor_up(),
+        KeyCode::Down if has_shift => move_track(state, true),
+        KeyCode::Up if has_shift => move_track(state, false),
+        KeyCode::Char('J') => move_track(state, true),
+        KeyCode::Char('K') => move_track(state, false),
+        KeyCode::Char('g') => state.view.go_top(),
+        KeyCode::Char('G') => state.view.go_bottom(),
         KeyCode::Char('f') if !has_ctrl => state.absolute = !state.absolute,
         KeyCode::Char('p') => {
             disable_raw_mode().unwrap();
@@ -329,18 +289,17 @@ fn handle_input(
             execute!(std::io::stdout(), EnterAlternateScreen).unwrap();
             if let Ok(playlist) = control::get_playlist() {
                 state.playlist = playlist;
-                state.clamp_scroll(term_height);
+                state.view.clamp_scroll();
             }
-            let _ = terminal.clear();
-            let term_height = terminal.size().unwrap().height;
-            terminal.draw(|f| render(f, state, term_height)).unwrap();
+            terminal.clear().ok();
+            terminal.draw(|f| render(f, state)).unwrap();
         }
         KeyCode::Char('D') | KeyCode::Delete => {
             let _ = control::remove_from_playlist(state.view.cursor + 1);
             if let Ok(playlist) = control::get_playlist() {
                 state.playlist = playlist;
             }
-            state.clamp_scroll(term_height);
+            state.view.clamp_scroll();
         }
         KeyCode::Char(' ') => {
             let _ = control::set_pause(!state.paused);

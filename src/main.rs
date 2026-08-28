@@ -7,6 +7,7 @@ mod ipc;
 mod list;
 mod pick;
 mod playlist;
+mod term;
 
 use clap::{Parser, Subcommand};
 use std::fmt::Display;
