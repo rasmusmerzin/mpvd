@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- Optimized release build for size.
+
 ## [2.2.1] - 2026-08-28
 
 ### Fixed
