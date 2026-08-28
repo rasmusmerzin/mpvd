@@ -8,9 +8,9 @@ and this project adheres to
 
 ## [Unreleased]
 
-### Changed
+### Fixed
 
-- Refactored `ListView`.
+- `mpvd pick` won't submit when cancelling.
 
 ## [2.2.0] - 2026-08-23
 

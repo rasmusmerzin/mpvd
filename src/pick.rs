@@ -167,6 +167,7 @@ pub fn run(dir: &str) {
     let mut terminal = Terminal::new(backend).unwrap();
 
     let mut picker = Picker::new(files);
+    let perform: bool;
 
     loop {
         picker.view.resize();
@@ -180,7 +181,8 @@ pub fn run(dir: &str) {
             } else {
                 handle_main_input(&mut picker, key)
             };
-            if done.is_some() {
+            if let Some(d) = done {
+                perform = d;
                 break;
             }
         }
@@ -190,7 +192,9 @@ pub fn run(dir: &str) {
     execute!(terminal.backend_mut(), LeaveAlternateScreen).ok();
     terminal.show_cursor().ok();
 
-    submit(&picker);
+    if perform {
+        submit(&picker);
+    }
 }
 
 fn render(f: &mut Frame, picker: &Picker) {
