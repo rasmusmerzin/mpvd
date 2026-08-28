@@ -10,6 +10,8 @@ Install v2 of `mpvd` with `cargo`:
 cargo install mpvd
 ```
 
+Note that `mpv` needs to be installed also.
+
 > If you want to install v1, run `npm i -g @merzin/mpvd`.
 
 ## Build from source
