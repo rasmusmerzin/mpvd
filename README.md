@@ -1,6 +1,11 @@
-# mpvd
+<h1>
+  <span>mpvd</span>
+  <a href="https://github.com/rasmusmerzin/mpvd/actions/workflows/ci.yml"><img src="https://github.com/rasmusmerzin/mpvd/actions/workflows/ci.yml/badge.svg" alt="build status"></a>
+  <a href="https://github.com/rasmusmerzin/mpvd/blob/main/LICENSE"><img src="https://img.shields.io/github/license/rasmusmerzin/mpvd" alt="license"></a>
+  <a href="https://github.com/rasmusmerzin/mpvd/releases/latest"><img src="https://img.shields.io/github/v/release/rasmusmerzin/mpvd" alt="release"></a>
+</h1>
 
-MPV music player daemon controller CLI.
+MPV music player daemon controller CLI and TUI.
 
 ## Install
 
