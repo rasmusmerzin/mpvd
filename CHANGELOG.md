@@ -8,9 +8,15 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [2.2.2] - 2026-08-28
+
 ### Changed
 
 - Optimized release build for size.
+
+### Added
+
+- GitHub actions for CI & CD.
 
 ## [2.2.1] - 2026-08-28
 
@@ -117,7 +123,8 @@ and this project adheres to
 - `remove`/`rm` subcommand
 - `send` subcommand
 
-[unreleased]: https://github.com/rasmusmerzin/mpvd/compare/v2.2.1...main
+[unreleased]: https://github.com/rasmusmerzin/mpvd/compare/v2.2.2...main
+[2.2.2]: https://github.com/rasmusmerzin/mpvd/compare/v2.2.1...v2.2.2
 [2.2.1]: https://github.com/rasmusmerzin/mpvd/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/rasmusmerzin/mpvd/compare/v2.1.1...v2.2.0
 [2.1.1]: https://github.com/rasmusmerzin/mpvd/compare/v2.1.0...v2.1.1
