@@ -146,6 +146,264 @@ impl Picker {
         self.search_cursor = self.search_cursor.min(chars.len());
         self.search = chars.into_iter().collect();
     }
+
+    fn render(&self, f: &mut Frame) {
+        let area = f.area();
+
+        self.render_items(f, area);
+
+        if self.filtered.is_empty() {
+            let empty_msg = Line::from(Span::styled(
+                "No matches.",
+                Style::default().add_modifier(Modifier::ITALIC).dim(),
+            ));
+            f.render_widget(
+                empty_msg,
+                Rect::new(0, 0, area.width, self.view.height as u16),
+            );
+        }
+
+        self.render_search(f, area);
+    }
+
+    fn render_items(&self, f: &mut Frame, area: Rect) {
+        let items: Vec<Line> = self.filtered[self.view.offset..]
+            .iter()
+            .take(self.view.height)
+            .enumerate()
+            .map(|(i, &file_idx)| {
+                let file = &self.files[file_idx];
+                let is_hover = i + self.view.offset == self.view.cursor;
+                let is_push = self.to_push.contains(&file_idx);
+                let is_insert = self.to_insert.contains(&file_idx);
+
+                let prefix = if is_insert {
+                    "i "
+                } else if is_push {
+                    "* "
+                } else {
+                    "  "
+                };
+
+                let name = if self.absolute {
+                    file.to_string_lossy().to_string()
+                } else {
+                    file.file_name()
+                        .map(|n| n.to_string_lossy().to_string())
+                        .unwrap_or_else(|| file.to_string_lossy().to_string())
+                };
+
+                let text = format!("{prefix}{name}");
+                let text = text.chars().take(area.width as usize).collect::<String>();
+                let text = format!("{text:<width$}", width = area.width as usize);
+
+                let style = if is_hover {
+                    Style::default().add_modifier(Modifier::REVERSED)
+                } else {
+                    Style::default()
+                };
+
+                Line::from(Span::styled(text, style))
+            })
+            .collect();
+
+        f.render_widget(
+            Paragraph::new(items),
+            Rect::new(0, 0, area.width, self.view.height as u16),
+        );
+    }
+
+    fn render_search(&self, f: &mut Frame, area: Rect) {
+        if self.search_mode {
+            let before: String = self.search.chars().take(self.search_cursor).collect();
+            let at_cursor: String = self
+                .search
+                .chars()
+                .skip(self.search_cursor)
+                .take(1)
+                .collect();
+            let after: String = self.search.chars().skip(self.search_cursor + 1).collect();
+            let mut spans = vec![Span::raw(format!("/{before}"))];
+            if at_cursor.is_empty() {
+                spans.push(Span::styled(
+                    " ",
+                    Style::default().add_modifier(Modifier::REVERSED),
+                ));
+            } else {
+                spans.push(Span::styled(
+                    at_cursor,
+                    Style::default().add_modifier(Modifier::REVERSED),
+                ));
+                spans.push(Span::raw(after));
+            }
+            let search_line = Line::from(spans);
+            f.render_widget(
+                search_line,
+                Rect::new(0, self.view.height as u16, area.width, 1),
+            );
+        } else if !self.search.is_empty() {
+            let search_line = Line::from(Span::raw(format!("/{}", self.search)));
+            f.render_widget(
+                search_line,
+                Rect::new(0, self.view.height as u16, area.width, 1),
+            );
+        }
+    }
+
+    fn handle_main_input(&mut self, key: KeyEvent) -> Option<bool> {
+        let has_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('q') => return Some(false),
+            KeyCode::Char('c') if has_ctrl => return Some(false),
+            KeyCode::Char('e') if has_ctrl => self.view.scroll_down(1),
+            KeyCode::Char('y') if has_ctrl => self.view.scroll_up(1),
+            KeyCode::Char('d') if has_ctrl => self.view.page_down(),
+            KeyCode::Char('u') if has_ctrl => self.view.page_up(),
+            KeyCode::Char('H') => self.view.cursor_home(),
+            KeyCode::Char('L') => self.view.cursor_end(),
+            KeyCode::Down | KeyCode::Char('j') => self.view.cursor_down(),
+            KeyCode::Char('n') if has_ctrl => self.view.cursor_down(),
+            KeyCode::Up | KeyCode::Char('k') => self.view.cursor_up(),
+            KeyCode::Char('p') if has_ctrl => self.view.cursor_up(),
+            KeyCode::Char('g') => self.view.go_top(),
+            KeyCode::Char('G') => self.view.go_bottom(),
+            KeyCode::Char('f') => self.absolute = !self.absolute,
+            KeyCode::Char('r') => self.shuffle(),
+            KeyCode::Char(' ') | KeyCode::Tab => self.toggle_push(),
+            KeyCode::Char('i') => self.toggle_insert(),
+            KeyCode::Enter => return Some(true),
+            KeyCode::Char('/') => self.search_mode = true,
+            _ => {}
+        }
+        None
+    }
+
+    fn cancel_search(&mut self) {
+        self.search.clear();
+        self.search_cursor = 0;
+        self.search_mode = false;
+        self.update_filter();
+    }
+
+    fn handle_search_input(&mut self, key: KeyEvent) -> Option<bool> {
+        let has_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+
+        match key.code {
+            KeyCode::Enter => {
+                self.search_mode = false;
+                self.update_filter();
+            }
+            KeyCode::Esc => self.cancel_search(),
+            KeyCode::Char('c') if has_ctrl => self.cancel_search(),
+            KeyCode::Home => self.search_cursor = 0,
+            KeyCode::Char('a') if has_ctrl => self.search_cursor = 0,
+            KeyCode::End => self.search_cursor = self.search_len(),
+            KeyCode::Char('e') if has_ctrl => self.search_cursor = self.search_len(),
+            KeyCode::Char('w') if has_ctrl => {
+                let target = self.search_word_start(self.search_cursor);
+                self.edit_search(|chars, cur| {
+                    chars.drain(target..cur);
+                });
+                self.search_cursor = target;
+                self.update_filter();
+            }
+            KeyCode::Left if has_ctrl => {
+                self.search_cursor = self.search_word_start(self.search_cursor);
+            }
+            KeyCode::Right if has_ctrl => {
+                self.search_cursor = self.search_word_end(self.search_cursor);
+            }
+            KeyCode::Left => self.search_cursor = self.search_cursor.saturating_sub(1),
+            KeyCode::Char('b') if has_ctrl => {
+                self.search_cursor = self.search_cursor.saturating_sub(1);
+            }
+            KeyCode::Right => {
+                if self.search_cursor < self.search_len() {
+                    self.search_cursor += 1;
+                }
+            }
+            KeyCode::Char('f') if has_ctrl => {
+                if self.search_cursor < self.search_len() {
+                    self.search_cursor += 1;
+                }
+            }
+            KeyCode::Char('u') if has_ctrl => {
+                self.edit_search(|chars, cur| {
+                    chars.drain(..cur);
+                });
+                self.search_cursor = 0;
+                self.update_filter();
+            }
+            KeyCode::Char('k') if has_ctrl => {
+                self.edit_search(|chars, cur| chars.truncate(cur));
+                self.update_filter();
+            }
+            KeyCode::Backspace => {
+                if self.search_cursor > 0 {
+                    self.search_cursor -= 1;
+                    self.edit_search(|chars, cur| {
+                        chars.remove(cur);
+                    });
+                    self.update_filter();
+                }
+            }
+            KeyCode::Char('h') if has_ctrl => {
+                if self.search_cursor > 0 {
+                    self.search_cursor -= 1;
+                    self.edit_search(|chars, cur| {
+                        chars.remove(cur);
+                    });
+                    self.update_filter();
+                }
+            }
+            KeyCode::Delete => {
+                self.edit_search(|chars, cur| {
+                    if cur < chars.len() {
+                        chars.remove(cur);
+                    }
+                });
+                self.update_filter();
+            }
+            KeyCode::Char('d') if has_ctrl => {
+                self.edit_search(|chars, cur| {
+                    if cur < chars.len() {
+                        chars.remove(cur);
+                    }
+                });
+                self.update_filter();
+            }
+            KeyCode::Char(c) if !has_ctrl => {
+                self.edit_search(|chars, cur| chars.insert(cur, c));
+                self.search_cursor += 1;
+                self.update_filter();
+            }
+            _ => {}
+        }
+        None
+    }
+
+    fn submit(&self) {
+        if self.to_push.is_empty() && self.to_insert.is_empty() {
+            return;
+        }
+        daemon::start();
+        let mut push_indices: Vec<usize> = self.to_push.iter().copied().collect();
+        push_indices.sort_unstable();
+        let mut insert_indices: Vec<usize> = self.to_insert.iter().copied().collect();
+        insert_indices.sort_unstable();
+        insert_indices.reverse();
+        for idx in insert_indices {
+            let file = &self.files[idx];
+            let _ = control::insert_next(&file.to_string_lossy());
+            println!("{}", file.display());
+        }
+        for idx in push_indices {
+            let file = &self.files[idx];
+            let _ = control::push_to_playlist(&file.to_string_lossy());
+            println!("{}", file.display());
+        }
+    }
 }
 
 pub fn run(dir: &str) {
@@ -164,15 +422,15 @@ pub fn run(dir: &str) {
 
     loop {
         picker.view.resize();
-        terminal.draw(|f| render(f, &picker)).ok();
+        terminal.draw(|f| picker.render(f)).ok();
 
         if event::poll(Duration::from_millis(100)).unwrap()
             && let Event::Key(key) = event::read().unwrap()
         {
             let done = if picker.search_mode {
-                handle_search_input(&mut picker, key)
+                picker.handle_search_input(key)
             } else {
-                handle_main_input(&mut picker, key)
+                picker.handle_main_input(key)
             };
             if let Some(d) = done {
                 perform = d;
@@ -184,260 +442,6 @@ pub fn run(dir: &str) {
     term_restore();
 
     if perform {
-        submit(&picker);
-    }
-}
-
-fn render(f: &mut Frame, picker: &Picker) {
-    let area = f.area();
-
-    let items: Vec<Line> = picker.filtered[picker.view.offset..]
-        .iter()
-        .take(picker.view.height)
-        .enumerate()
-        .map(|(i, &file_idx)| {
-            let file = &picker.files[file_idx];
-            let is_hover = i + picker.view.offset == picker.view.cursor;
-            let is_push = picker.to_push.contains(&file_idx);
-            let is_insert = picker.to_insert.contains(&file_idx);
-
-            let prefix = if is_insert {
-                "i "
-            } else if is_push {
-                "* "
-            } else {
-                "  "
-            };
-
-            let name = if picker.absolute {
-                file.to_string_lossy().to_string()
-            } else {
-                file.file_name()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_else(|| file.to_string_lossy().to_string())
-            };
-
-            let text = format!("{prefix}{name}");
-            let text = text.chars().take(area.width as usize).collect::<String>();
-            let text = format!("{text:<width$}", width = area.width as usize);
-
-            let style = if is_hover {
-                Style::default().add_modifier(Modifier::REVERSED)
-            } else {
-                Style::default()
-            };
-
-            Line::from(Span::styled(text, style))
-        })
-        .collect();
-
-    f.render_widget(
-        Paragraph::new(items),
-        Rect::new(0, 0, area.width, picker.view.height as u16),
-    );
-
-    if picker.filtered.is_empty() {
-        let empty_msg = Line::from(Span::styled(
-            "No matches.",
-            Style::default().add_modifier(Modifier::ITALIC).dim(),
-        ));
-        f.render_widget(
-            empty_msg,
-            Rect::new(0, 0, area.width, picker.view.height as u16),
-        );
-    }
-
-    if picker.search_mode {
-        let before: String = picker.search.chars().take(picker.search_cursor).collect();
-        let at_cursor: String = picker
-            .search
-            .chars()
-            .skip(picker.search_cursor)
-            .take(1)
-            .collect();
-        let after: String = picker
-            .search
-            .chars()
-            .skip(picker.search_cursor + 1)
-            .collect();
-        let mut spans = vec![Span::raw(format!("/{before}"))];
-        if at_cursor.is_empty() {
-            spans.push(Span::styled(
-                " ",
-                Style::default().add_modifier(Modifier::REVERSED),
-            ));
-        } else {
-            spans.push(Span::styled(
-                at_cursor,
-                Style::default().add_modifier(Modifier::REVERSED),
-            ));
-            spans.push(Span::raw(after));
-        }
-        let search_line = Line::from(spans);
-        f.render_widget(
-            search_line,
-            Rect::new(0, picker.view.height as u16, area.width, 1),
-        );
-    } else if !picker.search.is_empty() {
-        let search_line = Line::from(Span::raw(format!("/{}", picker.search)));
-        f.render_widget(
-            search_line,
-            Rect::new(0, picker.view.height as u16, area.width, 1),
-        );
-    }
-}
-
-fn handle_main_input(picker: &mut Picker, key: KeyEvent) -> Option<bool> {
-    let has_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-
-    match key.code {
-        KeyCode::Esc | KeyCode::Char('q') => return Some(false),
-        KeyCode::Char('c') if has_ctrl => return Some(false),
-        KeyCode::Char('e') if has_ctrl => picker.view.scroll_down(1),
-        KeyCode::Char('y') if has_ctrl => picker.view.scroll_up(1),
-        KeyCode::Char('d') if has_ctrl => picker.view.page_down(),
-        KeyCode::Char('u') if has_ctrl => picker.view.page_up(),
-        KeyCode::Char('H') => picker.view.cursor_home(),
-        KeyCode::Char('L') => picker.view.cursor_end(),
-        KeyCode::Down | KeyCode::Char('j') => picker.view.cursor_down(),
-        KeyCode::Char('n') if has_ctrl => picker.view.cursor_down(),
-        KeyCode::Up | KeyCode::Char('k') => picker.view.cursor_up(),
-        KeyCode::Char('p') if has_ctrl => picker.view.cursor_up(),
-        KeyCode::Char('g') => picker.view.go_top(),
-        KeyCode::Char('G') => picker.view.go_bottom(),
-        KeyCode::Char('f') => picker.absolute = !picker.absolute,
-        KeyCode::Char('r') => picker.shuffle(),
-        KeyCode::Char(' ') | KeyCode::Tab => picker.toggle_push(),
-        KeyCode::Char('i') => picker.toggle_insert(),
-        KeyCode::Enter => return Some(true),
-        KeyCode::Char('/') => picker.search_mode = true,
-        _ => {}
-    }
-    None
-}
-
-fn cancel_search(picker: &mut Picker) {
-    picker.search.clear();
-    picker.search_cursor = 0;
-    picker.search_mode = false;
-    picker.update_filter();
-}
-
-fn handle_search_input(picker: &mut Picker, key: KeyEvent) -> Option<bool> {
-    let has_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-
-    match key.code {
-        KeyCode::Enter => {
-            picker.search_mode = false;
-            picker.update_filter();
-        }
-        KeyCode::Esc => cancel_search(picker),
-        KeyCode::Char('c') if has_ctrl => cancel_search(picker),
-        KeyCode::Home => picker.search_cursor = 0,
-        KeyCode::Char('a') if has_ctrl => picker.search_cursor = 0,
-        KeyCode::End => picker.search_cursor = picker.search_len(),
-        KeyCode::Char('e') if has_ctrl => picker.search_cursor = picker.search_len(),
-        KeyCode::Char('w') if has_ctrl => {
-            let target = picker.search_word_start(picker.search_cursor);
-            picker.edit_search(|chars, cur| {
-                chars.drain(target..cur);
-            });
-            picker.search_cursor = target;
-            picker.update_filter();
-        }
-        KeyCode::Left if has_ctrl => {
-            picker.search_cursor = picker.search_word_start(picker.search_cursor);
-        }
-        KeyCode::Right if has_ctrl => {
-            picker.search_cursor = picker.search_word_end(picker.search_cursor);
-        }
-        KeyCode::Left => picker.search_cursor = picker.search_cursor.saturating_sub(1),
-        KeyCode::Char('b') if has_ctrl => {
-            picker.search_cursor = picker.search_cursor.saturating_sub(1);
-        }
-        KeyCode::Right => {
-            if picker.search_cursor < picker.search_len() {
-                picker.search_cursor += 1;
-            }
-        }
-        KeyCode::Char('f') if has_ctrl => {
-            if picker.search_cursor < picker.search_len() {
-                picker.search_cursor += 1;
-            }
-        }
-        KeyCode::Char('u') if has_ctrl => {
-            picker.edit_search(|chars, cur| {
-                chars.drain(..cur);
-            });
-            picker.search_cursor = 0;
-            picker.update_filter();
-        }
-        KeyCode::Char('k') if has_ctrl => {
-            picker.edit_search(|chars, cur| chars.truncate(cur));
-            picker.update_filter();
-        }
-        KeyCode::Backspace => {
-            if picker.search_cursor > 0 {
-                picker.search_cursor -= 1;
-                picker.edit_search(|chars, cur| {
-                    chars.remove(cur);
-                });
-                picker.update_filter();
-            }
-        }
-        KeyCode::Char('h') if has_ctrl => {
-            if picker.search_cursor > 0 {
-                picker.search_cursor -= 1;
-                picker.edit_search(|chars, cur| {
-                    chars.remove(cur);
-                });
-                picker.update_filter();
-            }
-        }
-        KeyCode::Delete => {
-            picker.edit_search(|chars, cur| {
-                if cur < chars.len() {
-                    chars.remove(cur);
-                }
-            });
-            picker.update_filter();
-        }
-        KeyCode::Char('d') if has_ctrl => {
-            picker.edit_search(|chars, cur| {
-                if cur < chars.len() {
-                    chars.remove(cur);
-                }
-            });
-            picker.update_filter();
-        }
-        KeyCode::Char(c) if !has_ctrl => {
-            picker.edit_search(|chars, cur| chars.insert(cur, c));
-            picker.search_cursor += 1;
-            picker.update_filter();
-        }
-        _ => {}
-    }
-    None
-}
-
-fn submit(picker: &Picker) {
-    if picker.to_push.is_empty() && picker.to_insert.is_empty() {
-        return;
-    }
-    daemon::start();
-    let mut push_indices: Vec<usize> = picker.to_push.iter().copied().collect();
-    push_indices.sort_unstable();
-    let mut insert_indices: Vec<usize> = picker.to_insert.iter().copied().collect();
-    insert_indices.sort_unstable();
-    insert_indices.reverse();
-    for idx in push_indices {
-        let file = &picker.files[idx];
-        let _ = control::push_to_playlist(&file.to_string_lossy());
-        println!("{}", file.display());
-    }
-    for idx in insert_indices {
-        let file = &picker.files[idx];
-        let _ = control::insert_next(&file.to_string_lossy());
-        println!("{}", file.display());
+        picker.submit();
     }
 }
