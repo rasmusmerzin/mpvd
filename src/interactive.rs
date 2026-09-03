@@ -3,10 +3,6 @@ use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use ratatui::backend::CrosstermBackend;
-use ratatui::crossterm::execute;
-use ratatui::crossterm::terminal::{
-    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
-};
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -17,6 +13,7 @@ use crate::control;
 use crate::ipc;
 use crate::list::ListView;
 use crate::pick;
+use crate::term::{term_alternate_raw, term_restore};
 use crate::{config, daemon};
 
 struct PlaylistState {
@@ -48,21 +45,15 @@ impl PlaylistState {
 }
 
 pub fn run() {
-    // start() only returns once a newly spawned daemon's IPC socket is ready
     daemon::start();
-    enable_raw_mode().unwrap();
-    let mut stdout = std::io::stdout();
-    execute!(stdout, EnterAlternateScreen).unwrap();
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend).unwrap();
-
+    term_alternate_raw();
+    let mut terminal = Terminal::new(CrosstermBackend::new(std::io::stdout())).unwrap();
     let mut state = PlaylistState::new();
-
     let mut observer = match ipc::Observer::connect() {
         Ok(o) => o,
         Err(e) => {
             eprintln!("{e}");
-            restore_terminal(&mut terminal);
+            term_restore();
             return;
         }
     };
@@ -118,13 +109,7 @@ pub fn run() {
         }
     }
 
-    restore_terminal(&mut terminal);
-}
-
-fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) {
-    disable_raw_mode().ok();
-    execute!(terminal.backend_mut(), LeaveAlternateScreen).ok();
-    terminal.show_cursor().ok();
+    term_restore();
 }
 
 fn track_name(item: &control::PlaylistItem, absolute: bool) -> String {
@@ -282,11 +267,9 @@ fn handle_input(
         KeyCode::Char('G') => state.view.go_bottom(),
         KeyCode::Char('f') if !has_ctrl => state.absolute = !state.absolute,
         KeyCode::Char('p') => {
-            disable_raw_mode().unwrap();
-            execute!(std::io::stdout(), LeaveAlternateScreen).unwrap();
+            term_restore();
             pick::run(config::DEFAULT_MUSIC_DIR);
-            enable_raw_mode().unwrap();
-            execute!(std::io::stdout(), EnterAlternateScreen).unwrap();
+            term_alternate_raw();
             if let Ok(playlist) = control::get_playlist() {
                 state.playlist = playlist;
                 state.view.clamp_scroll();

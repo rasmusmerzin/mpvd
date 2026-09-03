@@ -4,10 +4,6 @@ use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use ratatui::backend::CrosstermBackend;
-use ratatui::crossterm::execute;
-use ratatui::crossterm::terminal::{
-    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
-};
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -19,6 +15,7 @@ use crate::control;
 use crate::daemon;
 use crate::find;
 use crate::list::ListView;
+use crate::term::{term_alternate_raw, term_restore};
 
 struct Picker {
     view: ListView,
@@ -160,12 +157,8 @@ pub fn run(dir: &str) {
         return;
     }
 
-    enable_raw_mode().unwrap();
-    let mut stdout = std::io::stdout();
-    execute!(stdout, EnterAlternateScreen).unwrap();
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend).unwrap();
-
+    term_alternate_raw();
+    let mut terminal = Terminal::new(CrosstermBackend::new(std::io::stdout())).unwrap();
     let mut picker = Picker::new(files);
     let perform: bool;
 
@@ -188,9 +181,7 @@ pub fn run(dir: &str) {
         }
     }
 
-    disable_raw_mode().ok();
-    execute!(terminal.backend_mut(), LeaveAlternateScreen).ok();
-    terminal.show_cursor().ok();
+    term_restore();
 
     if perform {
         submit(&picker);
@@ -433,7 +424,6 @@ fn submit(picker: &Picker) {
     if picker.to_push.is_empty() && picker.to_insert.is_empty() {
         return;
     }
-    // start() only returns once a newly spawned daemon's IPC socket is ready
     daemon::start();
     let mut push_indices: Vec<usize> = picker.to_push.iter().copied().collect();
     push_indices.sort_unstable();
