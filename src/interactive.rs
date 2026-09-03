@@ -42,6 +42,185 @@ impl PlaylistState {
             .iter()
             .position(|item| item.current.unwrap_or(false))
     }
+
+    fn render(&self, f: &mut Frame) {
+        let area = f.area();
+
+        if self.playlist.is_empty() {
+            let empty_msg = Line::from(Span::styled(
+                "Playlist is empty. Press p to pick files.",
+                Style::default().add_modifier(Modifier::ITALIC).dim(),
+            ));
+            f.render_widget(
+                empty_msg,
+                Rect::new(0, 0, area.width, self.view.height as u16),
+            );
+        } else {
+            let items = self.render_lines(area.width as usize);
+            let list = Paragraph::new(items);
+            f.render_widget(list, Rect::new(0, 0, area.width, self.view.height as u16));
+        }
+
+        if let Some(status_line) = self.render_status(area.width as usize) {
+            f.render_widget(
+                status_line,
+                Rect::new(0, self.view.height as u16, area.width, 1),
+            );
+        }
+    }
+
+    fn render_lines(&self, area_width: usize) -> Vec<Line<'_>> {
+        self.playlist[self.view.offset..]
+            .iter()
+            .take(self.view.height)
+            .enumerate()
+            .map(|(i, item)| {
+                let idx = i + self.view.offset;
+                let is_hover = idx == self.view.cursor;
+                let is_current = item.current.unwrap_or(false);
+
+                let index_str = format!("{:>4} ", idx + 1);
+                let cursor = if is_current {
+                    if self.paused { "- " } else { "* " }
+                } else {
+                    "  "
+                };
+
+                let name = track_name(item, self.absolute);
+                let name_max = area_width.saturating_sub(index_str.len() + cursor.len());
+                let name_padded = pad_to_width(&name, name_max);
+
+                let style = row_style(is_hover, is_current);
+                let index_style = if is_hover {
+                    style
+                } else {
+                    Style::default().dim()
+                };
+                let cursor_style = if is_hover { style } else { Style::default() };
+
+                Line::from(vec![
+                    Span::styled(index_str, index_style),
+                    Span::styled(cursor, cursor_style),
+                    Span::styled(name_padded, style),
+                ])
+            })
+            .collect()
+    }
+
+    fn render_status(&self, area_width: usize) -> Option<Line<'_>> {
+        let current = self.current_index()?;
+        let item = self.playlist.get(current)?;
+
+        let index_str = format!("{:>4} ", current + 1);
+        let cursor = if self.paused { "- " } else { "* " };
+        let time_str = format!(" {}", control::format_time_string(self.time, self.duration));
+        let name = track_name(item, self.absolute);
+        let name_max = area_width.saturating_sub(index_str.len() + cursor.len() + time_str.len());
+        let name_padded = pad_to_width(&name, name_max);
+
+        Some(Line::from(Span::raw(format!(
+            "{index_str}{cursor}{name_padded}{time_str}"
+        ))))
+    }
+
+    fn move_track(&mut self, down: bool) {
+        let position = self.view.cursor;
+        if down {
+            if position + 1 >= self.playlist.len() {
+                return;
+            }
+            let _ = control::move_in_playlist(position + 1, position + 2);
+        } else {
+            if position == 0 {
+                return;
+            }
+            let _ = control::move_in_playlist(position + 1, position);
+        }
+        if let Ok(playlist) = control::get_playlist() {
+            self.playlist = playlist;
+        }
+        if down {
+            self.view.cursor_down();
+        } else {
+            self.view.cursor_up();
+        }
+    }
+
+    fn handle_input(
+        &mut self,
+        terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+        key: KeyEvent,
+    ) -> bool {
+        let m = key.modifiers;
+        let has_ctrl = m.contains(KeyModifiers::CONTROL);
+        let has_shift = m.contains(KeyModifiers::SHIFT);
+
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('q') => return true,
+            KeyCode::Char('c') if has_ctrl => return true,
+            KeyCode::Char('e') if has_ctrl => self.view.scroll_down(1),
+            KeyCode::Char('y') if has_ctrl => self.view.scroll_up(1),
+            KeyCode::Char('d') if has_ctrl => self.view.page_down(),
+            KeyCode::Char('u') if has_ctrl => self.view.page_up(),
+            KeyCode::Char('H') => self.view.cursor_home(),
+            KeyCode::Char('L') => self.view.cursor_end(),
+            KeyCode::Char('j') if !has_shift => self.view.cursor_down(),
+            KeyCode::Char('n') if has_ctrl => self.view.cursor_down(),
+            KeyCode::Char('k') if !has_shift => self.view.cursor_up(),
+            KeyCode::Char('p') if has_ctrl => self.view.cursor_up(),
+            KeyCode::Down if !has_shift => self.view.cursor_down(),
+            KeyCode::Up if !has_shift => self.view.cursor_up(),
+            KeyCode::Down if has_shift => self.move_track(true),
+            KeyCode::Up if has_shift => self.move_track(false),
+            KeyCode::Char('J') => self.move_track(true),
+            KeyCode::Char('K') => self.move_track(false),
+            KeyCode::Char('g') => self.view.go_top(),
+            KeyCode::Char('G') => self.view.go_bottom(),
+            KeyCode::Char('f') if !has_ctrl => self.absolute = !self.absolute,
+            KeyCode::Char('p') => {
+                term_restore();
+                pick::run(config::DEFAULT_MUSIC_DIR);
+                term_alternate_raw();
+                if let Ok(playlist) = control::get_playlist() {
+                    self.playlist = playlist;
+                    self.view.clamp_scroll();
+                }
+                terminal.clear().ok();
+                terminal.draw(|f| self.render(f)).unwrap();
+            }
+            KeyCode::Char('D') | KeyCode::Delete => {
+                let _ = control::remove_from_playlist(self.view.cursor + 1);
+                if let Ok(playlist) = control::get_playlist() {
+                    self.playlist = playlist;
+                }
+                self.view.clamp_scroll();
+            }
+            KeyCode::Char(' ') => {
+                let _ = control::set_pause(!self.paused);
+            }
+            KeyCode::Left if has_ctrl => {
+                let _ = control::seek(-5.0);
+            }
+            KeyCode::Right if has_ctrl => {
+                let _ = control::seek(5.0);
+            }
+            KeyCode::Char('b') if has_ctrl => {
+                let _ = control::seek(-5.0);
+            }
+            KeyCode::Char('f') if has_ctrl => {
+                let _ = control::seek(5.0);
+            }
+            KeyCode::Enter => {
+                if Some(self.view.cursor) == self.current_index() {
+                    let _ = control::set_pause(!self.paused);
+                } else {
+                    let _ = control::play_at_index(self.view.cursor + 1);
+                }
+            }
+            _ => {}
+        }
+        false
+    }
 }
 
 pub fn run() {
@@ -83,11 +262,11 @@ pub fn run() {
 
     loop {
         state.view.resize();
-        terminal.draw(|f| render(f, &state)).unwrap();
+        terminal.draw(|f| state.render(f)).unwrap();
 
         if event::poll(Duration::from_millis(50)).unwrap()
             && let Event::Key(key) = event::read().unwrap()
-            && handle_input(&mut state, &mut terminal, key)
+            && state.handle_input(&mut terminal, key)
         {
             break;
         }
@@ -133,180 +312,4 @@ fn row_style(is_hover: bool, is_current: bool) -> Style {
     } else {
         Style::default()
     }
-}
-
-fn render(f: &mut Frame, state: &PlaylistState) {
-    let area = f.area();
-
-    if state.playlist.is_empty() {
-        let empty_msg = Line::from(Span::styled(
-            "Playlist is empty. Press p to pick files.",
-            Style::default().add_modifier(Modifier::ITALIC).dim(),
-        ));
-        f.render_widget(
-            empty_msg,
-            Rect::new(0, 0, area.width, state.view.height as u16),
-        );
-    } else {
-        let items: Vec<Line> = state.playlist[state.view.offset..]
-            .iter()
-            .take(state.view.height)
-            .enumerate()
-            .map(|(i, item)| {
-                let idx = i + state.view.offset;
-                let is_hover = idx == state.view.cursor;
-                let is_current = item.current.unwrap_or(false);
-
-                let index_str = format!("{:>4} ", idx + 1);
-                let cursor = if is_current {
-                    if state.paused { "- " } else { "* " }
-                } else {
-                    "  "
-                };
-
-                let name = track_name(item, state.absolute);
-                let name_max = (area.width as usize).saturating_sub(index_str.len() + cursor.len());
-                let name_padded = pad_to_width(&name, name_max);
-
-                let style = row_style(is_hover, is_current);
-                let index_style = if is_hover {
-                    style
-                } else {
-                    Style::default().dim()
-                };
-                let cursor_style = if is_hover { style } else { Style::default() };
-
-                Line::from(vec![
-                    Span::styled(index_str, index_style),
-                    Span::styled(cursor, cursor_style),
-                    Span::styled(name_padded, style),
-                ])
-            })
-            .collect();
-
-        let list = Paragraph::new(items);
-        f.render_widget(list, Rect::new(0, 0, area.width, state.view.height as u16));
-    }
-
-    if let Some(current) = state.current_index()
-        && let Some(item) = state.playlist.get(current)
-    {
-        let index_str = format!("{:>4} ", current + 1);
-        let cursor = if state.paused { "- " } else { "* " };
-        let time_str = format!(
-            " {}",
-            control::format_time_string(state.time, state.duration)
-        );
-        let name = track_name(item, state.absolute);
-        let name_max =
-            (area.width as usize).saturating_sub(index_str.len() + cursor.len() + time_str.len());
-        let name_padded = pad_to_width(&name, name_max);
-
-        let status_line = Line::from(Span::raw(format!(
-            "{index_str}{cursor}{name_padded}{time_str}"
-        )));
-        f.render_widget(
-            status_line,
-            Rect::new(0, state.view.height as u16, area.width, 1),
-        );
-    }
-}
-
-fn move_track(state: &mut PlaylistState, down: bool) {
-    let position = state.view.cursor;
-    if down {
-        if position + 1 >= state.playlist.len() {
-            return;
-        }
-        let _ = control::move_in_playlist(position + 1, position + 2);
-    } else {
-        if position == 0 {
-            return;
-        }
-        let _ = control::move_in_playlist(position + 1, position);
-    }
-    if let Ok(playlist) = control::get_playlist() {
-        state.playlist = playlist;
-    }
-    if down {
-        state.view.cursor_down();
-    } else {
-        state.view.cursor_up();
-    }
-}
-
-fn handle_input(
-    state: &mut PlaylistState,
-    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
-    key: KeyEvent,
-) -> bool {
-    let m = key.modifiers;
-    let has_ctrl = m.contains(KeyModifiers::CONTROL);
-    let has_shift = m.contains(KeyModifiers::SHIFT);
-
-    match key.code {
-        KeyCode::Esc | KeyCode::Char('q') => return true,
-        KeyCode::Char('c') if has_ctrl => return true,
-        KeyCode::Char('e') if has_ctrl => state.view.scroll_down(1),
-        KeyCode::Char('y') if has_ctrl => state.view.scroll_up(1),
-        KeyCode::Char('d') if has_ctrl => state.view.page_down(),
-        KeyCode::Char('u') if has_ctrl => state.view.page_up(),
-        KeyCode::Char('H') => state.view.cursor_home(),
-        KeyCode::Char('L') => state.view.cursor_end(),
-        KeyCode::Char('j') if !has_shift => state.view.cursor_down(),
-        KeyCode::Char('n') if has_ctrl => state.view.cursor_down(),
-        KeyCode::Char('k') if !has_shift => state.view.cursor_up(),
-        KeyCode::Char('p') if has_ctrl => state.view.cursor_up(),
-        KeyCode::Down if !has_shift => state.view.cursor_down(),
-        KeyCode::Up if !has_shift => state.view.cursor_up(),
-        KeyCode::Down if has_shift => move_track(state, true),
-        KeyCode::Up if has_shift => move_track(state, false),
-        KeyCode::Char('J') => move_track(state, true),
-        KeyCode::Char('K') => move_track(state, false),
-        KeyCode::Char('g') => state.view.go_top(),
-        KeyCode::Char('G') => state.view.go_bottom(),
-        KeyCode::Char('f') if !has_ctrl => state.absolute = !state.absolute,
-        KeyCode::Char('p') => {
-            term_restore();
-            pick::run(config::DEFAULT_MUSIC_DIR);
-            term_alternate_raw();
-            if let Ok(playlist) = control::get_playlist() {
-                state.playlist = playlist;
-                state.view.clamp_scroll();
-            }
-            terminal.clear().ok();
-            terminal.draw(|f| render(f, state)).unwrap();
-        }
-        KeyCode::Char('D') | KeyCode::Delete => {
-            let _ = control::remove_from_playlist(state.view.cursor + 1);
-            if let Ok(playlist) = control::get_playlist() {
-                state.playlist = playlist;
-            }
-            state.view.clamp_scroll();
-        }
-        KeyCode::Char(' ') => {
-            let _ = control::set_pause(!state.paused);
-        }
-        KeyCode::Left if has_ctrl => {
-            let _ = control::seek(-5.0);
-        }
-        KeyCode::Right if has_ctrl => {
-            let _ = control::seek(5.0);
-        }
-        KeyCode::Char('b') if has_ctrl => {
-            let _ = control::seek(-5.0);
-        }
-        KeyCode::Char('f') if has_ctrl => {
-            let _ = control::seek(5.0);
-        }
-        KeyCode::Enter => {
-            if Some(state.view.cursor) == state.current_index() {
-                let _ = control::set_pause(!state.paused);
-            } else {
-                let _ = control::play_at_index(state.view.cursor + 1);
-            }
-        }
-        _ => {}
-    }
-    false
 }
