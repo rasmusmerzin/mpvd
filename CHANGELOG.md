@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- Updated `mpvd pick` to insert and push in the same order as files were selected.
+
 ## [2.2.2] - 2026-08-28
 
 ### Changed

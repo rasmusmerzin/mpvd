@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -22,8 +21,8 @@ struct Picker {
     files: Vec<PathBuf>,
     original: Vec<PathBuf>,
     filtered: Vec<usize>,
-    to_push: HashSet<usize>,
-    to_insert: HashSet<usize>,
+    to_push: Vec<usize>,
+    to_insert: Vec<usize>,
     search: String,
     search_cursor: usize,
     search_mode: bool,
@@ -39,8 +38,8 @@ impl Picker {
             original: files.clone(),
             filtered: (0..len).collect(),
             files,
-            to_push: HashSet::new(),
-            to_insert: HashSet::new(),
+            to_push: Vec::new(),
+            to_insert: Vec::new(),
             search: String::new(),
             search_cursor: 0,
             search_mode: false,
@@ -77,13 +76,15 @@ impl Picker {
             return;
         }
         let idx = self.filtered[self.view.cursor];
-        if self.to_insert.contains(&idx) {
-            self.to_insert.remove(&idx);
-            self.to_push.insert(idx);
-        } else if self.to_push.contains(&idx) {
-            self.to_push.remove(&idx);
+        if let Some(pos) = self.to_insert.iter().position(|&i| i == idx) {
+            self.to_insert.remove(pos);
+            if !self.to_push.contains(&idx) {
+                self.to_push.push(idx);
+            }
+        } else if let Some(pos) = self.to_push.iter().position(|&i| i == idx) {
+            self.to_push.remove(pos);
         } else {
-            self.to_push.insert(idx);
+            self.to_push.push(idx);
         }
     }
 
@@ -92,11 +93,13 @@ impl Picker {
             return;
         }
         let idx = self.filtered[self.view.cursor];
-        self.to_push.remove(&idx);
-        if self.to_insert.contains(&idx) {
-            self.to_insert.remove(&idx);
+        if let Some(pos) = self.to_push.iter().position(|&i| i == idx) {
+            self.to_push.remove(pos);
+        }
+        if let Some(pos) = self.to_insert.iter().position(|&i| i == idx) {
+            self.to_insert.remove(pos);
         } else {
-            self.to_insert.insert(idx);
+            self.to_insert.push(idx);
         }
     }
 
@@ -388,18 +391,14 @@ impl Picker {
             return;
         }
         daemon::start();
-        let mut push_indices: Vec<usize> = self.to_push.iter().copied().collect();
-        push_indices.sort_unstable();
-        let mut insert_indices: Vec<usize> = self.to_insert.iter().copied().collect();
-        insert_indices.sort_unstable();
-        insert_indices.reverse();
+        let insert_indices = self.to_insert.iter().copied().rev().collect::<Vec<_>>();
         for idx in insert_indices {
             let file = &self.files[idx];
             let _ = control::insert_next(&file.to_string_lossy());
             println!("{}", file.display());
         }
-        for idx in push_indices {
-            let file = &self.files[idx];
+        for idx in &self.to_push {
+            let file = &self.files[*idx];
             let _ = control::push_to_playlist(&file.to_string_lossy());
             println!("{}", file.display());
         }
