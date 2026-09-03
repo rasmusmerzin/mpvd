@@ -132,6 +132,7 @@ Opens a full-screen file browser rooted at `~/Music` (configurable via the `[dir
 | `L`                | Go to bottom of visible page                      |
 | `Space`/`Tab`      | Toggle selection of highlighted file              |
 | `i`                | Mark highlighted file for insertion               |
+| `Ctrl-a`           | Select all filtered files (or deselect if all)    |
 | `Enter`            | Push selected files to playlist and exit          |
 | `r`                | Toggle shuffle                                    |
 | `f`                | Toggle display between basename and absolute path |

@@ -103,6 +103,23 @@ impl Picker {
         }
     }
 
+    fn toggle_all(&mut self) {
+        let all_selected = self
+            .filtered
+            .iter()
+            .all(|&idx| self.to_push.contains(&idx) || self.to_insert.contains(&idx));
+        if all_selected {
+            self.to_push.retain(|idx| !self.filtered.contains(idx));
+            self.to_insert.retain(|idx| !self.filtered.contains(idx));
+        } else {
+            for &idx in &self.filtered {
+                if !self.to_push.contains(&idx) && !self.to_insert.contains(&idx) {
+                    self.to_push.push(idx);
+                }
+            }
+        }
+    }
+
     fn shuffle(&mut self) {
         use rand::seq::SliceRandom;
         self.files = self.original.clone();
@@ -272,6 +289,7 @@ impl Picker {
             KeyCode::Char('g') => self.view.go_top(),
             KeyCode::Char('G') => self.view.go_bottom(),
             KeyCode::Char('f') => self.absolute = !self.absolute,
+            KeyCode::Char('a') if has_ctrl => self.toggle_all(),
             KeyCode::Char('r') => self.shuffle(),
             KeyCode::Char(' ') | KeyCode::Tab => self.toggle_push(),
             KeyCode::Char('i') => self.toggle_insert(),

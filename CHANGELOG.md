@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- `mpvd pick` Ctrl+a keybind to toggle all filtered files.
+
 ### Changed
 
 - Updated `mpvd pick` to insert and push in the same order as files were selected.
