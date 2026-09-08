@@ -109,6 +109,7 @@ impl PlaylistState {
 
     fn render_status(&self, area_width: usize) -> Option<Line<'_>> {
         let current = self.current_index()?;
+        let hover = self.view.cursor == current;
         let item = self.playlist.get(current)?;
 
         let index_str = format!("{:>4} ", current + 1);
@@ -117,10 +118,27 @@ impl PlaylistState {
         let name = track_name(item, self.absolute);
         let name_max = area_width.saturating_sub(index_str.len() + cursor.len() + time_str.len());
         let name_padded = pad_to_width(&name, name_max);
-
-        Some(Line::from(Span::raw(format!(
-            "{index_str}{cursor}{name_padded}{time_str}"
-        ))))
+        let line = format!("{index_str}{cursor}{name_padded}{time_str}");
+        let progress = self.time / self.duration;
+        let invert = (progress * (area_width as f64)).round() as usize;
+        let left = String::from(line.get(0..invert).unwrap());
+        let right = String::from(line.get(invert..).unwrap());
+        Some(Line::from(vec![
+            Span::styled(
+                left,
+                match hover {
+                    true => Style::default().add_modifier(Modifier::REVERSED),
+                    false => Style::default().dim().add_modifier(Modifier::REVERSED),
+                },
+            ),
+            Span::styled(
+                right,
+                match hover {
+                    true => Style::default(),
+                    false => Style::default().dim(),
+                },
+            ),
+        ]))
     }
 
     fn move_track(&mut self, down: bool) {
