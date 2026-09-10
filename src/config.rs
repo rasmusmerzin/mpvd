@@ -8,8 +8,13 @@ pub fn resolve_tilde(path: &str) -> PathBuf {
         && let Some(home) = env::var_os("HOME")
     {
         return PathBuf::from(home).join(rest.trim_start_matches('/'));
+    } else if !path.starts_with("/")
+        && let Ok(pwd) = env::current_dir()
+    {
+        pwd.join(path)
+    } else {
+        PathBuf::from(path)
     }
-    PathBuf::from(path)
 }
 
 pub fn mpvd_sock() -> PathBuf {

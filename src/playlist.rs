@@ -1,4 +1,8 @@
-use std::io::IsTerminal;
+use std::{
+    io::IsTerminal,
+    path::{Path, PathBuf},
+};
+use xspf::Playlist;
 
 use crate::control;
 
@@ -26,4 +30,23 @@ pub fn print_playlist(plain: bool, full: bool) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+pub fn read_playlist(path: &Path) -> Option<Vec<PathBuf>> {
+    let dir = path.parent()?;
+    if let Some(ext) = &path.extension()
+        && ext.to_string_lossy() == "xspf"
+        && let Ok(playlist) = Playlist::read_file(&path)
+    {
+        Some(
+            playlist
+                .track_list
+                .iter()
+                .filter_map(|item| item.location.first().map(|location| dir.join(location)))
+                .filter(|filepath| filepath.exists())
+                .collect(),
+        )
+    } else {
+        None
+    }
 }

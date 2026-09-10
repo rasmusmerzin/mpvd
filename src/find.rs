@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 const MPV_AUDIO_EXTS: &[&str] = &[
     "aac", "ac3", "aiff", "ape", "au", "dts", "eac3", "flac", "m4a", "mka", "mp3", "oga", "ogg",
-    "ogm", "opus", "thd", "wav", "wma", "wv", "tta",
+    "ogm", "opus", "thd", "wav", "wma", "wv", "tta", "xspf",
 ];
 
 pub fn is_mpv_audio(path: &Path) -> bool {

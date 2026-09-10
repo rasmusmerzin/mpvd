@@ -3,6 +3,7 @@ use serde_json::json;
 
 use crate::daemon;
 use crate::ipc;
+use crate::playlist::read_playlist;
 
 #[derive(Debug, Deserialize)]
 pub struct PlaylistItem {
@@ -23,11 +24,43 @@ pub fn get_pause() -> Result<bool, String> {
 pub fn push_to_playlist(file: &str) -> Result<(), String> {
     daemon::start();
     let path = crate::config::resolve_tilde(file);
-    ipc::send(&[
-        json!("loadfile"),
-        json!(path.to_string_lossy()),
-        json!("append-play"),
-    ])?;
+    if let Some(files) = read_playlist(&path) {
+        for filepath in &files {
+            ipc::send(&[
+                json!("loadfile"),
+                json!(filepath.to_string_lossy()),
+                json!("append-play"),
+            ])?;
+        }
+    } else {
+        ipc::send(&[
+            json!("loadfile"),
+            json!(path.to_string_lossy()),
+            json!("append-play"),
+        ])?;
+    }
+    Ok(())
+}
+
+pub fn insert_next(file: &str) -> Result<(), String> {
+    daemon::start();
+    let path = crate::config::resolve_tilde(file);
+    if let Some(mut files) = read_playlist(&path) {
+        files.reverse();
+        for filepath in &files {
+            ipc::send(&[
+                json!("loadfile"),
+                json!(filepath.to_string_lossy()),
+                json!("insert-next"),
+            ])?;
+        }
+    } else {
+        ipc::send(&[
+            json!("loadfile"),
+            json!(path.to_string_lossy()),
+            json!("insert-next"),
+        ])?;
+    }
     Ok(())
 }
 
@@ -48,16 +81,6 @@ pub fn go_next() -> Result<(), String> {
 
 pub fn go_prev() -> Result<(), String> {
     ipc::send(&[json!("playlist-prev")])?;
-    Ok(())
-}
-
-pub fn insert_next(file: &str) -> Result<(), String> {
-    let path = crate::config::resolve_tilde(file);
-    ipc::send(&[
-        json!("loadfile"),
-        json!(path.to_string_lossy()),
-        json!("insert-next"),
-    ])?;
     Ok(())
 }
 

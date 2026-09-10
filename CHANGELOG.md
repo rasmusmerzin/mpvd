@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- Support for pushing and inserting `.xspf` playlist files.
+
 ## [2.3.0] - 2026-09-03
 
 ### Added
