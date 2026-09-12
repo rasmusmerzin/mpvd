@@ -52,6 +52,7 @@ Running `mpvd` with no arguments opens the interactive playlist.
 | `mpvd move <from> <to>` (`mv`) | Move a track from one playlist index to another                                                               |
 | `mpvd remove <index>` (`rm`)   | Remove a track at the given playlist index                                                                    |
 | `mpvd position` (`pos`)        | Print the playlist index of the current track (1-based)                                                       |
+| `mpvd export <path>`           | Export the playlist as an XSPF file (`--print` to write to stdout)                                            |
 
 ### Playback
 
@@ -85,7 +86,8 @@ Running `mpvd` with no arguments opens the interactive playlist.
 
 ## Interactive playlist (`mpvd` / `mpvd list --interactive`)
 
-Opens a full-screen interactive playlist browser. Playlist state is polled in real time.
+Opens a full-screen interactive playlist browser. Playlist state is polled in
+real time.
 
 ### Keybindings
 
@@ -114,7 +116,9 @@ Opens a full-screen interactive playlist browser. Playlist state is polled in re
 
 ## Interactive picker (`mpvd pick`)
 
-Opens a full-screen file browser rooted at `~/Music` (configurable via the `[dirpath]` argument). Browse recursively, select multiple audio files, search by regex, shuffle, and push them to the playlist.
+Opens a full-screen file browser rooted at `~/Music` (configurable via the
+`[dirpath]` argument). Browse recursively, select multiple audio files, search
+by regex, shuffle, and push them to the playlist.
 
 ### Keybindings
 
@@ -159,5 +163,6 @@ Opens a full-screen file browser rooted at `~/Music` (configurable via the `[dir
 
 ## Environment
 
-- `MPVD_SOCK`: Path to the mpv IPC socket (default: `$XDG_RUNTIME_DIR/mpvd.sock` or `$HOME/mpvd.sock`)
+- `MPVD_SOCK`: Path to the mpv IPC socket (default: `$XDG_RUNTIME_DIR/mpvd.sock`
+  or `$HOME/mpvd.sock`)
 - `MPVD_PID`: Path to the pid file (default: derived from `MPVD_SOCK`)

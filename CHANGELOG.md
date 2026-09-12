@@ -11,6 +11,7 @@ and this project adheres to
 ### Added
 
 - Support for pushing and inserting `.xspf` playlist files.
+- `mpvd export` subcommand to save playlist as `.xspf`.
 
 ## [2.3.0] - 2026-09-03
 
@@ -20,7 +21,8 @@ and this project adheres to
 
 ### Changed
 
-- Updated `mpvd pick` to insert and push in the same order as files were selected.
+- Updated `mpvd pick` to insert and push in the same order as files were
+  selected.
 
 ## [2.2.2] - 2026-08-28
 

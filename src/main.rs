@@ -11,6 +11,7 @@ mod term;
 
 use clap::{Parser, Subcommand};
 use std::fmt::Display;
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 #[derive(Parser)]
@@ -84,6 +85,14 @@ enum Commands {
     State,
     /// Print current track
     Current,
+    /// Export the playlist as XSPF
+    Export {
+        /// Output path
+        output: PathBuf,
+        /// Print to stdout instead of writing to file
+        #[arg(short, long)]
+        print: bool,
+    },
     /// Start/resume playback
     Play {
         /// Playlist index to play at (1-based)
@@ -202,6 +211,9 @@ fn main() -> ExitCode {
         Some(Commands::Time { seconds, duration }) => print_result(time_string(seconds, duration)),
         Some(Commands::State) => print_result(control::get_state()),
         Some(Commands::Current) => print_result(control::get_current()),
+        Some(Commands::Export { output, print }) => {
+            run_result(playlist::export_playlist(&output, print))
+        }
         Some(Commands::Play { index }) => run_result(play(index)),
         Some(Commands::Stop) => run_result(control::set_pause(true)),
         Some(Commands::Next) => run_result(control::go_next()),

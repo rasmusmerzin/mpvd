@@ -1,8 +1,9 @@
 use std::{
+    fs,
     io::IsTerminal,
     path::{Path, PathBuf},
 };
-use xspf::Playlist;
+use xspf::{Playlist, Track};
 
 use crate::control;
 
@@ -28,6 +29,42 @@ pub fn print_playlist(plain: bool, full: bool) -> Result<(), String> {
         } else {
             println!("{id} {cursor} {name}");
         }
+    }
+    Ok(())
+}
+
+pub fn export_playlist(path: &Path, print: bool) -> Result<(), String> {
+    let playlist = control::get_playlist()?;
+    if !print
+        && let Some(parent) = path.parent().filter(|parent| !parent.as_os_str().is_empty())
+    {
+        fs::create_dir_all(parent).map_err(|e| format!("create dir: {e}"))?;
+    }
+    let base = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+    let base = base.canonicalize().unwrap_or(base);
+    let mut xspf = Playlist::default().clone();
+    if let Some(filename) = path.file_name() {
+        xspf.set_title(filename.to_string_lossy());
+    }
+    for item in &playlist {
+        let filepath = PathBuf::from(&item.filename);
+        if let Ok(location) = filepath.strip_prefix(&base) {
+            xspf.add_track(
+                Track::default()
+                    .add_location(location.to_string_lossy())
+                    .set_title(control::display_name(&item.filename, false)),
+            );
+        }
+    }
+    let xml = xspf.to_string_pretty("\t");
+    if print {
+        println!("{xml}");
+    } else {
+        fs::write(path, xml).map_err(|e| format!("write file: {e}"))?;
     }
     Ok(())
 }
