@@ -92,6 +92,9 @@ enum Commands {
         /// Print to stdout instead of writing to file
         #[arg(short, long)]
         print: bool,
+        /// Overwrite target path
+        #[arg(short, long)]
+        force: bool,
     },
     /// Start/resume playback
     Play {
@@ -211,9 +214,11 @@ fn main() -> ExitCode {
         Some(Commands::Time { seconds, duration }) => print_result(time_string(seconds, duration)),
         Some(Commands::State) => print_result(control::get_state()),
         Some(Commands::Current) => print_result(control::get_current()),
-        Some(Commands::Export { output, print }) => {
-            run_result(playlist::export_playlist(&output, print))
-        }
+        Some(Commands::Export {
+            output,
+            print,
+            force,
+        }) => run_result(playlist::export_playlist(&output, print, force)),
         Some(Commands::Play { index }) => run_result(play(index)),
         Some(Commands::Stop) => run_result(control::set_pause(true)),
         Some(Commands::Next) => run_result(control::go_next()),

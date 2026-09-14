@@ -33,13 +33,8 @@ pub fn print_playlist(plain: bool, full: bool) -> Result<(), String> {
     Ok(())
 }
 
-pub fn export_playlist(path: &Path, print: bool) -> Result<(), String> {
+pub fn export_playlist(path: &Path, print: bool, force: bool) -> Result<(), String> {
     let playlist = control::get_playlist()?;
-    if !print
-        && let Some(parent) = path.parent().filter(|parent| !parent.as_os_str().is_empty())
-    {
-        fs::create_dir_all(parent).map_err(|e| format!("create dir: {e}"))?;
-    }
     let base = path
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
@@ -58,12 +53,24 @@ pub fn export_playlist(path: &Path, print: bool) -> Result<(), String> {
                     .add_location(location.to_string_lossy())
                     .set_title(control::display_name(&item.filename, false)),
             );
+        } else {
+            eprintln!(
+                "{} is not in {}: skipping",
+                filepath.to_string_lossy(),
+                base.to_string_lossy()
+            );
         }
+    }
+    if xspf.track_list.len() == 0 {
+        return Err("output playlist is empty. export aborted.".into());
     }
     let xml = xspf.to_string_pretty("\t");
     if print {
         println!("{xml}");
     } else {
+        if path.exists() && !force {
+            return Err("output file exists. use --force to overwrite.".into());
+        }
         fs::write(path, xml).map_err(|e| format!("write file: {e}"))?;
     }
     Ok(())
