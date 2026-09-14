@@ -10,6 +10,7 @@ and this project adheres to
 
 ### Added
 
+- Release artifact for Android.
 - Support for pushing and inserting `.xspf` playlist files.
 - `mpvd export` subcommand to save playlist as `.xspf`.
 

@@ -178,7 +178,7 @@ impl PlaylistState {
             KeyCode::Char('G') => self.view.go_bottom(),
             KeyCode::Char('f') if !has_ctrl => self.absolute = !self.absolute,
             KeyCode::Char('p') => {
-                term_restore();
+                terminal.clear().ok();
                 pick::run(config::DEFAULT_MUSIC_DIR);
                 term_alternate_raw();
                 if let Ok(playlist) = control::get_playlist() {
