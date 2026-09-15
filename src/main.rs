@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 #[derive(Parser)]
-#[command(name = "mpvd", about = "MPV daemon control")]
+#[command(name = "mpvd", version, about = "MPV daemon control")]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,

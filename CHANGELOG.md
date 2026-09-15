@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- Enabled version flag.
+
 ## [2.4.0] - 2026-09-15
 
 ### Added
