@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-09-15
+
 ### Added
 
 - Release artifact for Android.
@@ -140,7 +142,8 @@ and this project adheres to
 - `remove`/`rm` subcommand
 - `send` subcommand
 
-[unreleased]: https://github.com/rasmusmerzin/mpvd/compare/v2.3.0...main
+[unreleased]: https://github.com/rasmusmerzin/mpvd/compare/v2.4.0...main
+[2.4.0]: https://github.com/rasmusmerzin/mpvd/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/rasmusmerzin/mpvd/compare/v2.2.2...v2.3.0
 [2.2.2]: https://github.com/rasmusmerzin/mpvd/compare/v2.2.1...v2.2.2
 [2.2.1]: https://github.com/rasmusmerzin/mpvd/compare/v2.2.0...v2.2.1

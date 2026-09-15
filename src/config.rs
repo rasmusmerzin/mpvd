@@ -7,7 +7,7 @@ pub fn resolve_tilde(path: &str) -> PathBuf {
     if let Some(rest) = path.strip_prefix('~')
         && let Some(home) = env::var_os("HOME")
     {
-        return PathBuf::from(home).join(rest.trim_start_matches('/'));
+        PathBuf::from(home).join(rest.trim_start_matches('/'))
     } else if !path.starts_with("/")
         && let Ok(pwd) = env::current_dir()
     {

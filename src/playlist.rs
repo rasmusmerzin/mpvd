@@ -61,7 +61,7 @@ pub fn export_playlist(path: &Path, print: bool, force: bool) -> Result<(), Stri
             );
         }
     }
-    if xspf.track_list.len() == 0 {
+    if xspf.track_list.is_empty() {
         return Err("output playlist is empty. export aborted.".into());
     }
     let xml = xspf.to_string_pretty("\t");
@@ -80,7 +80,7 @@ pub fn read_playlist(path: &Path) -> Option<Vec<PathBuf>> {
     let dir = path.parent()?;
     if let Some(ext) = &path.extension()
         && ext.to_string_lossy() == "xspf"
-        && let Ok(playlist) = Playlist::read_file(&path)
+        && let Ok(playlist) = Playlist::read_file(path)
     {
         Some(
             playlist
