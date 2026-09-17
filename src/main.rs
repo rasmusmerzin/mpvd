@@ -44,11 +44,13 @@ enum Commands {
         /// Open interactive playlist
         #[arg(short, long)]
         interactive: bool,
+        /// Optional XSPF playlist file path.
+        file: Option<PathBuf>,
     },
     /// Append one or more files to the playlist
     Push {
         /// Files to append
-        files: Vec<String>,
+        files: Vec<PathBuf>,
     },
     /// Insert files to playlist after current track
     Insert {
@@ -194,17 +196,23 @@ fn main() -> ExitCode {
             plain,
             full,
             interactive,
-        }) => {
-            if interactive {
-                interactive::run();
-                ExitCode::SUCCESS
-            } else {
-                run_result(playlist::print_playlist(plain, full))
+            file,
+        }) => match file {
+            Some(path) => run_result(playlist::print_playlist(&path, plain, full)),
+            None => {
+                if interactive {
+                    interactive::run();
+                    ExitCode::SUCCESS
+                } else {
+                    run_result(playlist::print_current_playlist(plain, full))
+                }
             }
-        }
-        Some(Commands::Push { files }) => {
-            run_result(files.iter().try_for_each(|f| control::push_to_playlist(f)))
-        }
+        },
+        Some(Commands::Push { files }) => run_result(
+            files
+                .iter()
+                .try_for_each(|f| control::push_to_playlist(&f.to_string_lossy())),
+        ),
         Some(Commands::Insert { files }) => {
             run_result(files.iter().rev().try_for_each(|f| control::insert_next(f)))
         }

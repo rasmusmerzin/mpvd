@@ -11,6 +11,7 @@ and this project adheres to
 ### Added
 
 - Enabled version flag.
+- List `.xspf` file.
 
 ## [2.4.0] - 2026-09-15
 

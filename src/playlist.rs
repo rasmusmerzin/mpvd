@@ -7,7 +7,7 @@ use xspf::{Playlist, Track};
 
 use crate::control;
 
-pub fn print_playlist(plain: bool, full: bool) -> Result<(), String> {
+pub fn print_current_playlist(plain: bool, full: bool) -> Result<(), String> {
     let pause = control::get_pause()?;
     let playlist = control::get_playlist()?;
     let tty = std::io::stdout().is_terminal();
@@ -28,6 +28,24 @@ pub fn print_playlist(plain: bool, full: bool) -> Result<(), String> {
             println!("\x1b[2m{id}\x1b[m {cursor} {name}");
         } else {
             println!("{id} {cursor} {name}");
+        }
+    }
+    Ok(())
+}
+
+pub fn print_playlist(path: &Path, plain: bool, full: bool) -> Result<(), String> {
+    let playlist = read_playlist(path).ok_or("Unable to read playlist")?;
+    let tty = std::io::stdout().is_terminal();
+    for (i, path) in playlist.iter().enumerate() {
+        let path_str = path.to_string_lossy();
+        let name = control::display_name(&path_str, full);
+        let id = format!("{:>4}", i + 1);
+        if plain {
+            println!("{name}");
+        } else if tty {
+            println!("\x1b[2m{id}\x1b[m {name}");
+        } else {
+            println!("{id} {name}");
         }
     }
     Ok(())
@@ -78,19 +96,13 @@ pub fn export_playlist(path: &Path, print: bool, force: bool) -> Result<(), Stri
 
 pub fn read_playlist(path: &Path) -> Option<Vec<PathBuf>> {
     let dir = path.parent()?;
-    if let Some(ext) = &path.extension()
-        && ext.to_string_lossy() == "xspf"
-        && let Ok(playlist) = Playlist::read_file(path)
-    {
-        Some(
-            playlist
-                .track_list
-                .iter()
-                .filter_map(|item| item.location.first().map(|location| dir.join(location)))
-                .filter(|filepath| filepath.exists())
-                .collect(),
-        )
-    } else {
-        None
-    }
+    let playlist = Playlist::read_file(path).ok()?;
+    Some(
+        playlist
+            .track_list
+            .iter()
+            .filter_map(|item| item.location.first().map(|location| dir.join(location)))
+            .filter(|filepath| filepath.exists())
+            .collect(),
+    )
 }
