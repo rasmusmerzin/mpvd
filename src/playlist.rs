@@ -151,6 +151,26 @@ pub fn remove_from_file(target: &Path, index: usize) -> Result<(), String> {
     Ok(())
 }
 
+pub fn move_in_file(target: &Path, from: usize, to: usize) -> Result<(), String> {
+    let target = crate::config::resolve_tilde(&target.to_string_lossy());
+    let mut xspf = Playlist::read_file(&target).map_err(|e| format!("read playlist: {e:?}"))?;
+    let len = xspf.track_list.len();
+    if from == 0 || from > len {
+        return Err(format!("no track at index {from}"));
+    }
+    if to == 0 || to > len {
+        return Err(format!("invalid destination index {to}"));
+    }
+    if from == to {
+        return Ok(());
+    }
+    let item = xspf.track_list.remove(from - 1);
+    xspf.track_list.insert(to - 1, item);
+    let xml = xspf.to_string_pretty("\t");
+    fs::write(&target, xml).map_err(|e| format!("write file: {e}"))?;
+    Ok(())
+}
+
 pub fn read_playlist(path: &Path) -> Option<Vec<PathBuf>> {
     let dir = path.parent()?;
     let playlist = Playlist::read_file(path).ok()?;

@@ -67,6 +67,9 @@ enum Commands {
         from: usize,
         /// Destination index (1-based)
         to: usize,
+        /// XSPF playlist file path to move within instead of the current playlist
+        #[arg(short, long)]
+        playlist: Option<PathBuf>,
     },
     /// Remove a track from the playlist
     #[command(alias = "rm")]
@@ -226,7 +229,14 @@ fn main() -> ExitCode {
         Some(Commands::Insert { files }) => {
             run_result(files.iter().rev().try_for_each(|f| control::insert_next(f)))
         }
-        Some(Commands::Move { from, to }) => run_result(control::move_in_playlist(from, to)),
+        Some(Commands::Move {
+            from,
+            to,
+            playlist: target,
+        }) => run_result(match target {
+            Some(path) => playlist::move_in_file(&path, from, to),
+            None => control::move_in_playlist(from, to),
+        }),
         Some(Commands::Remove {
             index,
             playlist: target,
