@@ -73,6 +73,9 @@ enum Commands {
     Remove {
         /// Playlist index to remove (1-based)
         index: usize,
+        /// XSPF playlist file path to remove from instead of the current playlist
+        #[arg(short, long)]
+        playlist: Option<PathBuf>,
     },
     /// Print playlist index of the current track
     #[command(alias = "pos")]
@@ -224,7 +227,13 @@ fn main() -> ExitCode {
             run_result(files.iter().rev().try_for_each(|f| control::insert_next(f)))
         }
         Some(Commands::Move { from, to }) => run_result(control::move_in_playlist(from, to)),
-        Some(Commands::Remove { index }) => run_result(control::remove_from_playlist(index)),
+        Some(Commands::Remove {
+            index,
+            playlist: target,
+        }) => run_result(match target {
+            Some(path) => playlist::remove_from_file(&path, index),
+            None => control::remove_from_playlist(index),
+        }),
         Some(Commands::Position) => print_result(control::get_position()),
         Some(Commands::Time { seconds, duration }) => print_result(time_string(seconds, duration)),
         Some(Commands::State) => print_result(control::get_state()),

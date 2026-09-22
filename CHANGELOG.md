@@ -12,6 +12,8 @@ and this project adheres to
 
 - `mpvd push -p`/`--playlist` flag to push tracks to an XSPF playlist file
   instead of the current playlist.
+- `mpvd remove -p`/`--playlist` flag to remove tracks from an XSPF playlist
+  file instead of the current playlist.
 
 ## [2.5.0] - 2026-09-20
 

@@ -50,10 +50,10 @@ Running `mpvd` with no arguments opens the interactive playlist.
 | Command                        | Description                                                                                                   |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------- |
 | `mpvd list` (`ls`)             | Show the playlist (`--plain` for raw names, `--full` for absolute paths, `--interactive` for interactive TUI) |
-| `mpvd push <files...>`       | Append one or more files to the playlist (`-p <path>` to push to an XSPF playlist file instead) |
+| `mpvd push <files...>`         | Append one or more files to the playlist (`-p <path>` to push to an XSPF playlist file instead)               |
 | `mpvd insert <files...>`       | Insert one or more files to the playlist after current track                                                  |
 | `mpvd move <from> <to>` (`mv`) | Move a track from one playlist index to another                                                               |
-| `mpvd remove <index>` (`rm`)   | Remove a track at the given playlist index                                                                    |
+| `mpvd remove <index>` (`rm`)   | Remove a track at the given playlist index (`-p <path>` to remove from an XSPF playlist file instead)         |
 | `mpvd position` (`pos`)        | Print the playlist index of the current track (1-based)                                                       |
 | `mpvd export <path>`           | Export the playlist as an XSPF file (`--print` to write to stdout)                                            |
 
