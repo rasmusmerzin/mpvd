@@ -51,6 +51,9 @@ enum Commands {
     Push {
         /// Files to append
         files: Vec<PathBuf>,
+        /// XSPF playlist file path to push to instead of the current playlist
+        #[arg(short, long)]
+        playlist: Option<PathBuf>,
     },
     /// Insert files to playlist after current track
     Insert {
@@ -208,11 +211,15 @@ fn main() -> ExitCode {
                 }
             }
         },
-        Some(Commands::Push { files }) => run_result(
-            files
+        Some(Commands::Push {
+            files,
+            playlist: target,
+        }) => run_result(match target {
+            Some(path) => playlist::push_to_file(&path, &files),
+            None => files
                 .iter()
                 .try_for_each(|f| control::push_to_playlist(&f.to_string_lossy())),
-        ),
+        }),
         Some(Commands::Insert { files }) => {
             run_result(files.iter().rev().try_for_each(|f| control::insert_next(f)))
         }

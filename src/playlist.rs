@@ -94,6 +94,51 @@ pub fn export_playlist(path: &Path, print: bool, force: bool) -> Result<(), Stri
     Ok(())
 }
 
+pub fn push_to_file(target: &Path, files: &[PathBuf]) -> Result<(), String> {
+    if files.is_empty() {
+        return Ok(());
+    }
+    let target = crate::config::resolve_tilde(&target.to_string_lossy());
+    let dir = target
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+    let dir = dir.canonicalize().unwrap_or(dir);
+    let mut xspf = if target.exists() {
+        Playlist::read_file(&target).map_err(|e| format!("read playlist: {e:?}"))?
+    } else {
+        let mut playlist = Playlist::default().clone();
+        if let Some(filename) = target.file_name() {
+            playlist.set_title(filename.to_string_lossy());
+        }
+        playlist
+    };
+    for file in files {
+        let path = crate::config::resolve_tilde(&file.to_string_lossy());
+        let paths = read_playlist(&path).unwrap_or_else(|| vec![path]);
+        for filepath in paths {
+            let abs = filepath.canonicalize().unwrap_or(filepath.clone());
+            if let Ok(location) = abs.strip_prefix(&dir) {
+                xspf.add_track(
+                    Track::default()
+                        .add_location(location.to_string_lossy())
+                        .set_title(control::display_name(&abs.to_string_lossy(), false)),
+                );
+            } else {
+                eprintln!(
+                    "{} is not in {}: skipping",
+                    filepath.to_string_lossy(),
+                    dir.to_string_lossy()
+                );
+            }
+        }
+    }
+    let xml = xspf.to_string_pretty("\t");
+    fs::write(&target, xml).map_err(|e| format!("write file: {e}"))?;
+    Ok(())
+}
+
 pub fn read_playlist(path: &Path) -> Option<Vec<PathBuf>> {
     let dir = path.parent()?;
     let playlist = Playlist::read_file(path).ok()?;
