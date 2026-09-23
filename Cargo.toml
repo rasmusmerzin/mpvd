@@ -9,6 +9,7 @@ repository = "https://github.com/rasmusmerzin/mpvd"
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 crossterm = "0.29.0"
+dashmap = "6.2.1"
 libc = "0.2.189"
 rand = "0.10.2"
 ratatui = "0.30.2"
