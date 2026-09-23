@@ -69,11 +69,11 @@ Running `mpvd` with no arguments opens the interactive playlist.
 
 ### Info
 
-| Command        | Description                                                                                |
-| -------------- | ------------------------------------------------------------------------------------------ |
-| `mpvd time`    | Print current time position (`--seconds` for raw seconds, `--duration` for total duration) |
-| `mpvd state`   | Print `paused` or `playing`                                                                |
-| `mpvd current` | Print current track                                                                        |
+| Command            | Description                                                                                                            |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `mpvd time [file]` | Print current time position, or file duration if provided (`--seconds` for raw seconds, `--duration` for raw duration) |
+| `mpvd state`       | Print `paused` or `playing`                                                                                            |
+| `mpvd current`     | Print current track                                                                                                    |
 
 ### Raw IPC
 

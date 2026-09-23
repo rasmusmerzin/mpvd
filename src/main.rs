@@ -85,14 +85,16 @@ enum Commands {
     /// Print playlist index of the current track
     #[command(alias = "pos")]
     Position,
-    /// Print current track time position
+    /// Print current track time position or file duration
     Time {
         /// Print seconds
         #[arg(short, long)]
         seconds: bool,
-        /// Print duration
+        /// Print duration without formatting
         #[arg(short, long)]
         duration: bool,
+        /// Optional file to probe duration for
+        file: Option<PathBuf>,
     },
     /// Print playing/paused state
     State,
@@ -162,7 +164,18 @@ fn run_result(result: Result<(), String>) -> ExitCode {
     }
 }
 
-fn time_string(seconds: bool, duration: bool) -> Result<String, String> {
+fn time_string(seconds: bool, duration: bool, file: Option<PathBuf>) -> Result<String, String> {
+    if let Some(filepath) = file {
+        let path = config::resolve_tilde(&filepath.to_string_lossy());
+        let path_str = path.to_string_lossy().to_string();
+        let d = control::probe_duration(&path_str)
+            .ok_or_else(|| format!("failed to probe duration: {path_str}"))?;
+        return Ok(if duration {
+            d.to_string()
+        } else {
+            control::format_time(d)
+        });
+    }
     match (seconds, duration) {
         (false, false) => control::get_time()
             .and_then(|t| control::get_duration().map(|d| control::format_time_string(t, d))),
@@ -244,7 +257,11 @@ fn run(cli: Cli) -> ExitCode {
             None => control::remove_from_playlist(index),
         }),
         Some(Commands::Position) => print_result(control::get_position()),
-        Some(Commands::Time { seconds, duration }) => print_result(time_string(seconds, duration)),
+        Some(Commands::Time {
+            seconds,
+            duration,
+            file,
+        }) => print_result(time_string(seconds, duration, file)),
         Some(Commands::State) => print_result(control::get_state()),
         Some(Commands::Current) => print_result(control::get_current()),
         Some(Commands::Export {
@@ -343,7 +360,24 @@ mod tests {
         }
         let cli = Cli::try_parse_from(["mpvd", "time", "--seconds", "--duration"]).unwrap();
         match cli.command.unwrap() {
-            Commands::Time { seconds, duration } => assert!(seconds && duration),
+            Commands::Time {
+                seconds,
+                duration,
+                file,
+            } => {
+                assert!(seconds && duration);
+                assert!(file.is_none());
+            }
+            _ => panic!("expected Time"),
+        }
+        let cli = Cli::try_parse_from(["mpvd", "time", "-d", "song.mp3"]).unwrap();
+        match cli.command.unwrap() {
+            Commands::Time {
+                duration, file, ..
+            } => {
+                assert!(duration);
+                assert_eq!(file, Some(PathBuf::from("song.mp3")));
+            }
             _ => panic!("expected Time"),
         }
         let cli = Cli::try_parse_from(["mpvd", "send", "get_property", "duration"]).unwrap();
@@ -488,6 +522,7 @@ mod tests {
                 run(command(Commands::Time {
                     seconds: false,
                     duration: false,
+                    file: None,
                 })),
                 ExitCode::SUCCESS
             );
@@ -495,6 +530,7 @@ mod tests {
                 run(command(Commands::Time {
                     seconds: true,
                     duration: false,
+                    file: None,
                 })),
                 ExitCode::SUCCESS
             );
@@ -502,6 +538,7 @@ mod tests {
                 run(command(Commands::Time {
                     seconds: false,
                     duration: true,
+                    file: None,
                 })),
                 ExitCode::SUCCESS
             );
@@ -509,6 +546,7 @@ mod tests {
                 run(command(Commands::Time {
                     seconds: true,
                     duration: true,
+                    file: None,
                 })),
                 ExitCode::SUCCESS
             );
@@ -554,6 +592,51 @@ mod tests {
                 ExitCode::SUCCESS
             );
         });
+    }
+
+    #[test]
+    fn run_time_with_file_probes_duration() {
+        let dir = Temp::new("main");
+        let file = dir.join("tone.wav");
+        let status = std::process::Command::new("ffmpeg")
+            .args([
+                "-v",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:duration=2",
+                "-y",
+            ])
+            .arg(&file)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        assert_eq!(
+            run(command(Commands::Time {
+                seconds: false,
+                duration: false,
+                file: Some(file.clone()),
+            })),
+            ExitCode::SUCCESS
+        );
+        assert_eq!(
+            run(command(Commands::Time {
+                seconds: false,
+                duration: true,
+                file: Some(file.clone()),
+            })),
+            ExitCode::SUCCESS
+        );
+        let missing = dir.join("missing.mp3");
+        assert_eq!(
+            run(command(Commands::Time {
+                seconds: false,
+                duration: false,
+                file: Some(missing),
+            })),
+            ExitCode::from(1)
+        );
     }
 
     #[test]

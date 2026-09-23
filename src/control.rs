@@ -118,13 +118,16 @@ pub fn get_duration() -> Result<f64, String> {
 }
 
 pub fn format_time_string(time: f64, duration: f64) -> String {
-    let pos_secs = time as i64;
-    let dur_secs = duration as i64;
-    let mm = format!("{:02}", pos_secs / 60);
-    let ss = format!("{:02}", pos_secs % 60);
-    let mm_dur = format!("{:02}", dur_secs / 60);
-    let ss_dur = format!("{:02}", dur_secs % 60);
-    format!("{mm}:{ss}/{mm_dur}:{ss_dur}")
+    let pos = format_time(time);
+    let dur = format_time(duration);
+    format!("{pos}/{dur}")
+}
+
+pub fn format_time(time: f64) -> String {
+    let secs = time as i64;
+    let mm = format!("{:02}", secs / 60);
+    let ss = format!("{:02}", secs % 60);
+    format!("{mm}:{ss}")
 }
 
 pub fn seek(seconds: f64) -> Result<(), String> {
@@ -150,12 +153,29 @@ pub fn get_current() -> Result<String, String> {
         .ok_or("no current track".into())
 }
 
-pub fn display_name(filename: &str, absolute: bool) -> &str {
+pub fn display_name(filepath: &str, absolute: bool) -> &str {
     if absolute {
-        filename
+        filepath
     } else {
-        filename.rsplit('/').next().unwrap_or(filename)
+        filepath.rsplit('/').next().unwrap_or(filepath)
     }
+}
+
+pub fn probe_duration(filepath: &str) -> Option<f64> {
+    let out = std::process::Command::new("ffprobe")
+        .args([
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=nw=1:nk=1",
+            filepath,
+        ])
+        .output()
+        .ok()?;
+    let s = String::from_utf8(out.stdout).ok()?;
+    s.trim().parse::<f64>().ok()
 }
 
 #[cfg(test)]
