@@ -167,13 +167,23 @@ fn run_result(result: Result<(), String>) -> ExitCode {
 fn time_string(seconds: bool, duration: bool, file: Option<PathBuf>) -> Result<String, String> {
     if let Some(filepath) = file {
         let path = config::resolve_tilde(&filepath.to_string_lossy());
-        let path_str = path.to_string_lossy().to_string();
-        let d = control::probe_duration(&path_str)
-            .ok_or_else(|| format!("failed to probe duration: {path_str}"))?;
-        return Ok(if duration {
-            d.to_string()
+        let is_playlist = path.extension().and_then(|e| e.to_str()) == Some("xspf");
+        let files = if is_playlist {
+            playlist::read_playlist(&path).ok_or("Unable to read playlist")?
         } else {
-            control::format_time(d)
+            vec![path]
+        };
+        let mut total = 0.0;
+        for filepath in &files {
+            let file_str = filepath.to_string_lossy().to_string();
+            let d = control::probe_duration(&file_str)
+                .ok_or_else(|| format!("failed to probe duration: {file_str}"))?;
+            total += d;
+        }
+        return Ok(if duration {
+            total.to_string()
+        } else {
+            control::format_time(total)
         });
     }
     match (seconds, duration) {
@@ -372,9 +382,7 @@ mod tests {
         }
         let cli = Cli::try_parse_from(["mpvd", "time", "-d", "song.mp3"]).unwrap();
         match cli.command.unwrap() {
-            Commands::Time {
-                duration, file, ..
-            } => {
+            Commands::Time { duration, file, .. } => {
                 assert!(duration);
                 assert_eq!(file, Some(PathBuf::from("song.mp3")));
             }
@@ -636,6 +644,56 @@ mod tests {
                 file: Some(missing),
             })),
             ExitCode::from(1)
+        );
+    }
+
+    #[test]
+    fn run_time_with_playlist_sums_durations() {
+        let dir = Temp::new("main");
+        let status = std::process::Command::new("ffmpeg")
+            .args([
+                "-v",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:duration=2",
+                "-y",
+            ])
+            .arg(dir.join("tone1.wav"))
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let status = std::process::Command::new("ffmpeg")
+            .args([
+                "-v",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:duration=3",
+                "-y",
+            ])
+            .arg(dir.join("tone2.wav"))
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let pl = mk_xspf(&dir, "list.xspf", &["tone1.wav", "tone2.wav"]);
+        assert_eq!(
+            run(command(Commands::Time {
+                seconds: false,
+                duration: false,
+                file: Some(pl.clone()),
+            })),
+            ExitCode::SUCCESS
+        );
+        assert_eq!(
+            run(command(Commands::Time {
+                seconds: false,
+                duration: true,
+                file: Some(pl),
+            })),
+            ExitCode::SUCCESS
         );
     }
 
