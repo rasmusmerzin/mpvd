@@ -128,3 +128,176 @@ impl Observer {
         self.rx.try_iter().collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_util::{FakeServer, Reply, handler_fn, mpv_err, mpv_ok};
+    use serde_json::json;
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
+
+    fn with_sock(sock: &str, f: impl FnOnce()) {
+        crate::test_util::with_env(&[("MPVD_SOCK", Some(sock))], f);
+    }
+
+    #[test]
+    fn parse_arg_parses_json_and_plain() {
+        assert_eq!(parse_arg("5"), Value::from(5));
+        assert_eq!(parse_arg("true"), Value::Bool(true));
+        assert_eq!(parse_arg("\"quoted\""), Value::String("quoted".into()));
+        assert_eq!(parse_arg("{\"a\":1}"), json!({ "a": 1 }));
+        assert_eq!(parse_arg("not json"), Value::String("not json".into()));
+        assert_eq!(parse_arg(""), Value::String("".into()));
+    }
+
+    #[test]
+    fn send_raw_returns_matching_response() {
+        let server = FakeServer::start(handler_fn(|_| mpv_ok(json!(42))));
+        server.with_env(|| {
+            let resp = send_raw(&[json!("get_property"), json!("x")]).unwrap();
+            assert_eq!(resp["error"], "success");
+            assert!(resp.get("request_id").is_some());
+        });
+        let req = server.received.try_iter().next().unwrap();
+        assert_eq!(req["command"][0], "get_property");
+        assert!(req.get("request_id").is_some());
+    }
+
+    #[test]
+    fn send_extracts_data() {
+        let server = FakeServer::start(handler_fn(|_| mpv_ok(json!(7))));
+        server.with_env(|| {
+            assert_eq!(
+                send(&[json!("get_property"), json!("x")]).unwrap(),
+                json!(7)
+            );
+        });
+    }
+
+    #[test]
+    fn send_propagates_error() {
+        let server = FakeServer::start(handler_fn(|_| mpv_err("property not found")));
+        server.with_env(|| {
+            let err = send(&[json!("get_property"), json!("nope")]).unwrap_err();
+            assert!(err.contains("property not found"));
+        });
+    }
+
+    #[test]
+    fn send_of_null_data_returns_null() {
+        let server = FakeServer::start(handler_fn(|_| mpv_ok(Value::Null)));
+        server.with_env(|| {
+            assert_eq!(
+                send(&[json!("get_property"), json!("x")]).unwrap(),
+                Value::Null
+            );
+        });
+    }
+
+    #[test]
+    fn send_raw_errors_when_no_response() {
+        let server = FakeServer::start(Arc::new(|_| Reply::Close));
+        server.with_env(|| {
+            let err = send_raw(&[json!("nop")]).unwrap_err();
+            assert!(err.contains("no response from mpv"));
+        });
+    }
+
+    #[test]
+    fn send_fails_to_connect() {
+        let sock = std::env::temp_dir().join(format!("mpvd-no-sock-{}", std::process::id()));
+        with_sock(sock.to_str().unwrap(), || {
+            let err = send(&[json!("get_property")]).unwrap_err();
+            assert!(err.contains("failed to connect"));
+        });
+    }
+
+    #[test]
+    fn observe_prints_property_changes_and_stops_on_close() {
+        let server = FakeServer::start(Arc::new(|_| {
+            Reply::CloseAfter(json!({
+                "event": "property-change",
+                "id": 1,
+                "name": "pause",
+                "data": true,
+            }))
+        }));
+        server.with_env(|| {
+            assert!(observe("pause").is_ok());
+        });
+    }
+
+    #[test]
+    fn observer_connects_observes_and_polls() {
+        let server = FakeServer::start(Arc::new(|_| {
+            Reply::Respond(json!({
+                "event": "property-change",
+                "id": 1,
+                "name": "playlist",
+                "data": json!([{"filename": "/a.mp3"}]),
+            }))
+        }));
+        server.with_env(|| {
+            let mut observer = Observer::connect().unwrap();
+            let id = observer.observe("playlist").unwrap();
+            assert_eq!(id, 1);
+
+            let mut got = Vec::new();
+            let deadline = Instant::now() + Duration::from_secs(2);
+            while got.is_empty() && Instant::now() < deadline {
+                got = observer.poll();
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            assert_eq!(got.len(), 1);
+            assert_eq!(got[0].0, 1);
+            assert_eq!(got[0].1, "playlist");
+            assert_eq!(got[0].2, json!([{"filename": "/a.mp3"}]));
+        });
+    }
+
+    #[test]
+    fn observer_ignores_non_property_events() {
+        let server = FakeServer::start(Arc::new(|_| {
+            Reply::Respond(json!({
+                "event": "start-file",
+                "id": 0,
+                "data": null,
+            }))
+        }));
+        server.with_env(|| {
+            let observer = Observer::connect().unwrap();
+            std::thread::sleep(Duration::from_millis(20));
+            assert!(observer.poll().is_empty());
+        });
+    }
+
+    #[test]
+    fn observer_connect_fails_without_socket() {
+        let sock =
+            std::env::temp_dir().join(format!("mpvd-observer-no-sock-{}", std::process::id()));
+        with_sock(sock.to_str().unwrap(), || {
+            assert!(Observer::connect().is_err());
+        });
+    }
+
+    #[test]
+    fn connect_failure_message() {
+        let sock = std::env::temp_dir().join(format!("mpvd-connect-fail-{}", std::process::id()));
+        with_sock(sock.to_str().unwrap(), || {
+            let err = connect().unwrap_err();
+            assert!(err.contains("failed to connect"));
+        });
+    }
+
+    #[test]
+    fn request_ids_are_monotonic() {
+        let server = FakeServer::start(handler_fn(|_| mpv_ok(Value::Null)));
+        server.with_env(|| {
+            let before = REQUEST_ID.load(Ordering::Relaxed);
+            let _ = send_raw(&[json!("a")]);
+            let after = REQUEST_ID.load(Ordering::Relaxed);
+            assert!(after > before);
+        });
+    }
+}

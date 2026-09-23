@@ -313,3 +313,418 @@ fn row_style(is_hover: bool, is_current: bool) -> Style {
         Style::default()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::control;
+    use crate::test_util::{FakeServer, handler_fn, mpv_ok};
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use ratatui::backend::TestBackend;
+    use serde_json::{Value, json};
+    use std::io;
+
+    fn item(name: &str, current: bool) -> control::PlaylistItem {
+        control::PlaylistItem {
+            filename: name.to_string(),
+            current: Some(current),
+        }
+    }
+
+    fn key(code: KeyCode) -> KeyEvent {
+        KeyEvent::new(code, KeyModifiers::NONE)
+    }
+
+    fn ctrl(code: KeyCode) -> KeyEvent {
+        KeyEvent::new(code, KeyModifiers::CONTROL)
+    }
+
+    fn shift(code: KeyCode) -> KeyEvent {
+        KeyEvent::new(code, KeyModifiers::SHIFT)
+    }
+
+    fn term() -> Terminal<CrosstermBackend<io::Stdout>> {
+        Terminal::new(CrosstermBackend::new(io::stdout())).unwrap()
+    }
+
+    fn three_track() -> Value {
+        json!([
+            { "filename": "/m/a.mp3", "current": true },
+            { "filename": "/m/b.mp3", "current": false },
+            { "filename": "/m/c.mp3", "current": false },
+        ])
+    }
+
+    fn default_handler() -> crate::test_util::MpvHandler {
+        handler_fn(|req| {
+            let cmd = req
+                .get("command")
+                .and_then(|c| c.as_array())
+                .cloned()
+                .unwrap_or_default();
+            match cmd.first().and_then(|v| v.as_str()).unwrap_or("") {
+                "get_property" => match cmd.get(1).and_then(|v| v.as_str()).unwrap_or("") {
+                    "playlist" => mpv_ok(three_track()),
+                    "pause" => mpv_ok(json!(false)),
+                    "time-pos" => mpv_ok(json!(61.5)),
+                    "duration" => mpv_ok(json!(200.0)),
+                    _ => mpv_ok(Value::Null),
+                },
+                _ => mpv_ok(Value::Null),
+            }
+        })
+    }
+
+    fn state_basic() -> PlaylistState {
+        let mut s = PlaylistState::new();
+        s.playlist = vec![
+            item("/m/a.mp3", true),
+            item("/m/b.mp3", false),
+            item("/m/c.mp3", false),
+        ];
+        s.view.count = 3;
+        s.view.height = 10;
+        s
+    }
+
+    fn buffer_str(s: &PlaylistState, width: u16, height: u16) -> String {
+        let mut t = Terminal::new(TestBackend::new(width, height)).unwrap();
+        t.draw(|f| s.render(f)).unwrap();
+        let buf = t.backend_mut().buffer().clone();
+        let mut out = String::new();
+        for y in 0..height {
+            for x in 0..width {
+                out.push_str(buf[(x, y)].symbol());
+            }
+            out.push('\n');
+        }
+        out
+    }
+
+    #[test]
+    fn new_state_has_sane_defaults() {
+        let s = PlaylistState::new();
+        assert!(s.playlist.is_empty());
+        assert!(!s.paused);
+        assert!(!s.absolute);
+        assert_eq!(s.time, 0.0);
+        assert_eq!(s.duration, 0.0);
+    }
+
+    #[test]
+    fn current_index_finds_current_track() {
+        let mut s = PlaylistState::new();
+        assert_eq!(s.current_index(), None);
+        s.playlist = vec![item("/a", false), item("/b", true)];
+        assert_eq!(s.current_index(), Some(1));
+    }
+
+    #[test]
+    fn render_lines_marks_current_and_hover() {
+        let mut s = state_basic();
+        s.paused = true;
+        s.view.cursor = 1;
+        let lines = s.render_lines(40);
+        let text: Vec<String> = lines
+            .iter()
+            .map(|l| {
+                l.spans
+                    .iter()
+                    .map(|sp| sp.content.as_ref())
+                    .collect::<String>()
+            })
+            .collect();
+        assert_eq!(text.len(), 3);
+        assert!(text[0].contains("a.mp3"));
+        assert!(text[0].contains("-"));
+        assert!(text[1].contains("b.mp3"));
+    }
+
+    #[test]
+    fn render_status_shows_current_track_and_time() {
+        let mut s = state_basic();
+        s.time = 61.5;
+        s.duration = 200.0;
+        let line = s.render_status(40).unwrap();
+        let text: String = line.spans.iter().map(|sp| sp.content.as_ref()).collect();
+        assert!(text.contains("a.mp3"));
+        assert!(text.contains("01:01/03:20"));
+    }
+
+    #[test]
+    fn render_status_none_when_playlist_empty() {
+        let s = PlaylistState::new();
+        assert!(s.render_status(40).is_none());
+    }
+
+    #[test]
+    fn render_prompt_when_empty() {
+        let mut s = PlaylistState::new();
+        s.view.height = 4;
+        assert!(buffer_str(&s, 40, 5).contains("Playlist is empty"));
+    }
+
+    #[test]
+    fn render_lists_tracks() {
+        let mut s = state_basic();
+        s.view.height = 3;
+        let out = buffer_str(&s, 40, 5);
+        assert!(out.contains("a.mp3"));
+        assert!(out.contains("b.mp3"));
+        assert!(out.contains("c.mp3"));
+    }
+
+    #[test]
+    fn pad_to_width_pads_and_truncates() {
+        assert_eq!(pad_to_width("ab", 5), "ab   ");
+        assert_eq!(pad_to_width("abcdef", 3), "abc");
+        assert_eq!(pad_to_width("", 2), "  ");
+    }
+
+    #[test]
+    fn row_style_combinations() {
+        let s = row_style(true, true);
+        assert!(s.add_modifier.contains(Modifier::REVERSED));
+        assert_eq!(s.fg, Some(Color::Green));
+        let s = row_style(true, false);
+        assert!(s.add_modifier.contains(Modifier::REVERSED));
+        assert_eq!(s.fg, None);
+        let s = row_style(false, true);
+        assert_eq!(s.fg, Some(Color::Green));
+        let s = row_style(false, false);
+        assert_eq!(s.fg, None);
+        assert!(!s.add_modifier.contains(Modifier::REVERSED));
+    }
+
+    #[test]
+    fn track_name_resolves_display_name() {
+        let it = item("/m/a.mp3", false);
+        assert_eq!(track_name(&it, false), "a.mp3");
+        assert_eq!(track_name(&it, true), "/m/a.mp3");
+    }
+
+    #[test]
+    fn handle_input_quit_keys() {
+        let server = FakeServer::start(default_handler());
+        server.with_env(|| {
+            let mut t = term();
+            let mut s = state_basic();
+            assert!(s.handle_input(&mut t, key(KeyCode::Char('q'))));
+            assert!(s.handle_input(&mut t, key(KeyCode::Esc)));
+            assert!(s.handle_input(&mut t, ctrl(KeyCode::Char('c'))));
+        });
+    }
+
+    #[test]
+    fn handle_input_navigation() {
+        let server = FakeServer::start(default_handler());
+        server.with_env(|| {
+            let mut t = term();
+            let mut s = state_basic();
+            s.view.count = 10;
+            s.view.height = 3;
+            s.handle_input(&mut t, ctrl(KeyCode::Char('e')));
+            assert_eq!(s.view.offset, 1);
+            s.handle_input(&mut t, ctrl(KeyCode::Char('y')));
+            assert_eq!(s.view.offset, 0);
+            s.view.cursor = 6;
+            s.view.offset = 6;
+            s.handle_input(&mut t, ctrl(KeyCode::Char('u')));
+            assert_eq!(s.view.cursor, 6 - (s.view.height / 2));
+            s.handle_input(&mut t, ctrl(KeyCode::Char('d')));
+            assert!(s.view.cursor >= 6 - (s.view.height / 2));
+            s.view.go_top();
+            s.handle_input(&mut t, key(KeyCode::Char('g')));
+            assert_eq!((s.view.offset, s.view.cursor), (0, 0));
+            s.handle_input(&mut t, key(KeyCode::Char('G')));
+            assert_eq!(s.view.cursor, 9);
+            s.handle_input(&mut t, key(KeyCode::Char('H')));
+            assert_eq!(s.view.cursor, 7);
+            s.handle_input(&mut t, key(KeyCode::Char('L')));
+            assert_eq!(s.view.cursor, 9);
+        });
+    }
+
+    #[test]
+    fn handle_input_cursor_moves() {
+        let server = FakeServer::start(default_handler());
+        server.with_env(|| {
+            let mut t = term();
+            let mut s = state_basic();
+            assert!(!s.handle_input(&mut t, key(KeyCode::Char('j'))));
+            assert_eq!(s.view.cursor, 1);
+            s.handle_input(&mut t, key(KeyCode::Down));
+            assert_eq!(s.view.cursor, 2);
+            s.handle_input(&mut t, ctrl(KeyCode::Char('n')));
+            assert_eq!(s.view.cursor, 2);
+            s.handle_input(&mut t, key(KeyCode::Char('k')));
+            assert_eq!(s.view.cursor, 1);
+            s.handle_input(&mut t, key(KeyCode::Up));
+            assert_eq!(s.view.cursor, 0);
+            s.handle_input(&mut t, ctrl(KeyCode::Char('p')));
+            assert_eq!(s.view.cursor, 0);
+        });
+    }
+
+    #[test]
+    fn handle_input_f_toggles_absolute() {
+        let server = FakeServer::start(default_handler());
+        server.with_env(|| {
+            let mut t = term();
+            let mut s = state_basic();
+            s.handle_input(&mut t, key(KeyCode::Char('f')));
+            assert!(s.absolute);
+        });
+    }
+
+    #[test]
+    fn handle_input_space_sends_pause() {
+        let server = FakeServer::start(default_handler());
+        server.with_env(|| {
+            let mut t = term();
+            let mut s = state_basic();
+            s.handle_input(&mut t, key(KeyCode::Char(' ')));
+            let cmds: Vec<Value> = server
+                .received
+                .try_iter()
+                .filter_map(|r| r.get("command").cloned())
+                .collect();
+            assert!(
+                cmds.iter()
+                    .any(|c| c.get(0) == Some(&json!("set_property")))
+            );
+        });
+    }
+
+    #[test]
+    fn handle_input_move_track_down_and_up() {
+        let server = FakeServer::start(default_handler());
+        server.with_env(|| {
+            let mut t = term();
+            let mut s = state_basic();
+            s.view.cursor = 1;
+            s.handle_input(&mut t, shift(KeyCode::Down));
+            assert_eq!(s.view.cursor, 2);
+            s.handle_input(&mut t, shift(KeyCode::Up));
+            assert_eq!(s.view.cursor, 1);
+            s.handle_input(&mut t, key(KeyCode::Char('J')));
+            assert_eq!(s.view.cursor, 2);
+            s.handle_input(&mut t, key(KeyCode::Char('K')));
+            assert_eq!(s.view.cursor, 1);
+        });
+    }
+
+    #[test]
+    fn handle_input_move_track_boundaries() {
+        let server = FakeServer::start(default_handler());
+        server.with_env(|| {
+            let mut t = term();
+            let mut s = state_basic();
+            s.view.cursor = 0;
+            s.handle_input(&mut t, shift(KeyCode::Up));
+            assert_eq!(s.view.cursor, 0);
+            s.view.cursor = 2;
+            s.handle_input(&mut t, shift(KeyCode::Down));
+            assert_eq!(s.view.cursor, 2);
+        });
+    }
+
+    #[test]
+    fn handle_input_enter_plays_or_toggles() {
+        let server = FakeServer::start(default_handler());
+        server.with_env(|| {
+            let mut t = term();
+            let mut s = state_basic();
+            s.view.cursor = 0;
+            s.handle_input(&mut t, key(KeyCode::Enter));
+            s.view.cursor = 1;
+            s.handle_input(&mut t, key(KeyCode::Enter));
+            let cmds: Vec<Value> = server
+                .received
+                .try_iter()
+                .filter_map(|r| r.get("command").cloned())
+                .collect();
+            assert!(
+                cmds.iter()
+                    .any(|c| c.get(0) == Some(&json!("set_property")))
+            );
+            assert!(
+                cmds.iter()
+                    .any(|c| c.get(0) == Some(&json!("playlist-play-index")))
+            );
+        });
+    }
+
+    #[test]
+    fn handle_input_seek_keys() {
+        let server = FakeServer::start(default_handler());
+        server.with_env(|| {
+            let mut t = term();
+            let mut s = state_basic();
+            s.handle_input(&mut t, ctrl(KeyCode::Left));
+            s.handle_input(&mut t, ctrl(KeyCode::Right));
+            s.handle_input(&mut t, ctrl(KeyCode::Char('b')));
+            s.handle_input(&mut t, ctrl(KeyCode::Char('f')));
+            let cmds: Vec<Value> = server
+                .received
+                .try_iter()
+                .filter_map(|r| r.get("command").cloned())
+                .collect();
+            let seeks: Vec<f64> = cmds
+                .iter()
+                .filter(|c| c.get(0) == Some(&json!("seek")))
+                .filter_map(|c| c.get(1).and_then(|v| v.as_f64()))
+                .collect();
+            assert_eq!(seeks, vec![-5.0, 5.0, -5.0, 5.0]);
+        });
+    }
+
+    #[test]
+    fn handle_input_remove_track() {
+        let server = FakeServer::start(default_handler());
+        server.with_env(|| {
+            let mut t = term();
+            let mut s = state_basic();
+            s.view.cursor = 1;
+            s.handle_input(&mut t, key(KeyCode::Char('D')));
+            let cmds: Vec<Value> = server
+                .received
+                .try_iter()
+                .filter_map(|r| r.get("command").cloned())
+                .collect();
+            assert!(
+                cmds.iter()
+                    .any(|c| c.get(0) == Some(&json!("playlist-remove")))
+            );
+        });
+    }
+
+    #[test]
+    fn handle_input_unknown_key_is_harmless() {
+        let server = FakeServer::start(default_handler());
+        server.with_env(|| {
+            let mut t = term();
+            let mut s = state_basic();
+            assert!(!s.handle_input(&mut t, key(KeyCode::Char('x'))));
+        });
+    }
+
+    #[test]
+    fn handle_input_delete_keycode_removes() {
+        let server = FakeServer::start(default_handler());
+        server.with_env(|| {
+            let mut t = term();
+            let mut s = state_basic();
+            s.handle_input(&mut t, key(KeyCode::Delete));
+            let cmds: Vec<Value> = server
+                .received
+                .try_iter()
+                .filter_map(|r| r.get("command").cloned())
+                .collect();
+            assert!(
+                cmds.iter()
+                    .any(|c| c.get(0) == Some(&json!("playlist-remove")))
+            );
+        });
+    }
+}

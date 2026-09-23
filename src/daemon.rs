@@ -316,3 +316,174 @@ fn home_dir() -> PathBuf {
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_util::{Temp, with_env};
+    use std::os::unix::net::UnixListener;
+
+    fn daemon_env(dir: &Temp) -> Vec<(String, Option<String>)> {
+        vec![
+            (
+                "MPVD_SOCK".into(),
+                Some(dir.sock().to_string_lossy().into()),
+            ),
+            ("MPVD_PID".into(), Some(dir.pid().to_string_lossy().into())),
+        ]
+    }
+
+    fn with_daemon_env(dir: &Temp, f: impl FnOnce()) {
+        let envs = daemon_env(dir);
+        let refs: Vec<(&str, Option<&str>)> = envs
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_deref()))
+            .collect();
+        with_env(&refs, f);
+    }
+
+    #[test]
+    fn get_pid_none_without_files() {
+        let dir = Temp::new("daemon");
+        with_daemon_env(&dir, || assert_eq!(get_pid(), None));
+    }
+
+    #[test]
+    fn get_pid_detects_current_process() {
+        let dir = Temp::new("daemon");
+        fs::write(dir.pid(), format!("{}\n", std::process::id())).unwrap();
+        with_daemon_env(&dir, || {
+            assert_eq!(get_pid(), Some(std::process::id()));
+        });
+    }
+
+    #[test]
+    fn get_pid_unparseable_returns_none() {
+        let dir = Temp::new("daemon");
+        fs::write(dir.pid(), "not-a-pid").unwrap();
+        with_daemon_env(&dir, || assert_eq!(get_pid(), None));
+    }
+
+    #[test]
+    fn get_pid_dead_pid_self_heals() {
+        let dir = Temp::new("daemon");
+        fs::write(dir.pid(), "999999999\n").unwrap();
+        fs::write(dir.sock(), b"").unwrap();
+        with_daemon_env(&dir, || {
+            assert_eq!(get_pid(), None);
+            assert!(!dir.sock().exists());
+            assert!(!dir.pid().exists());
+        });
+    }
+
+    #[test]
+    fn process_alive_reflects_system_state() {
+        assert!(process_alive(std::process::id()));
+        assert!(!process_alive(999_999_999));
+    }
+
+    #[test]
+    fn is_zombie_is_false_for_self() {
+        assert!(!is_zombie(std::process::id()));
+        assert!(!is_zombie(999_999_999));
+    }
+
+    #[test]
+    fn await_socket_succeeds_when_bound() {
+        let dir = Temp::new("daemon");
+        let _listener = UnixListener::bind(dir.sock()).unwrap();
+        assert!(await_socket(&dir.sock(), Duration::from_secs(1)));
+    }
+
+    #[test]
+    fn await_socket_times_out() {
+        let dir = Temp::new("daemon");
+        assert!(!await_socket(&dir.sock(), Duration::from_millis(20)));
+    }
+
+    #[test]
+    fn start_returns_2_when_already_running() {
+        let dir = Temp::new("daemon");
+        fs::write(dir.pid(), format!("{}\n", std::process::id())).unwrap();
+        with_daemon_env(&dir, || {
+            assert_eq!(start(), ExitCode::from(2));
+        });
+    }
+
+    #[test]
+    fn kill_without_daemon_cleans_up_and_errors() {
+        let dir = Temp::new("daemon");
+        with_daemon_env(&dir, || {
+            assert_eq!(kill(), ExitCode::from(1));
+        });
+    }
+
+    #[test]
+    fn pid_prints_and_fails_without_daemon() {
+        let dir = Temp::new("daemon");
+        with_daemon_env(&dir, || {
+            assert_eq!(pid(), ExitCode::from(1));
+            fs::write(dir.pid(), format!("{}\n", std::process::id())).unwrap();
+            assert_eq!(pid(), ExitCode::SUCCESS);
+        });
+    }
+
+    #[test]
+    fn env_prints_mpvd_paths() {
+        let dir = Temp::new("daemon");
+        let s = dir.sock().to_string_lossy().to_string();
+        with_env(
+            &[
+                ("MPVD_SOCK", Some(s.as_str())),
+                ("XDG_RUNTIME_DIR", None),
+                ("HOME", None),
+            ],
+            env,
+        );
+    }
+
+    #[test]
+    fn home_dir_fallback() {
+        with_env(&[("HOME", Some("/x"))], || {
+            assert_eq!(home_dir(), PathBuf::from("/x"))
+        });
+        with_env(&[("HOME", None)], || {
+            assert_eq!(home_dir(), PathBuf::from("."))
+        });
+    }
+
+    #[test]
+    fn write_read_status_roundtrip() {
+        let mut fds = [0 as libc::c_int; 2];
+        assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
+        write_status(fds[1], STATUS_OK, "hello");
+        write_status(fds[1], STATUS_ERR, "boom");
+        unsafe { libc::close(fds[1]) };
+        let out = read_status(fds[0]);
+        unsafe { libc::close(fds[0]) };
+        assert_eq!(out, b"1hello0boom".to_vec());
+    }
+
+    #[test]
+    fn write_status_empty_and_read_status_closed() {
+        let mut fds = [0 as libc::c_int; 2];
+        assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
+        write_status(fds[1], STATUS_OK, "");
+        unsafe { libc::close(fds[1]) };
+        let out = read_status(fds[0]);
+        unsafe { libc::close(fds[0]) };
+        assert_eq!(out, b"1".to_vec());
+    }
+
+    #[test]
+    fn write_all_writes_everything() {
+        let mut fds = [0 as libc::c_int; 2];
+        assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
+        let payload = vec![b'x'; 4096];
+        write_all(fds[1], &payload);
+        unsafe { libc::close(fds[1]) };
+        let out = read_status(fds[0]);
+        unsafe { libc::close(fds[0]) };
+        assert_eq!(out, payload);
+    }
+}

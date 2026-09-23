@@ -134,6 +134,22 @@ mod tests {
     use super::ListView;
 
     #[test]
+    fn new_initializes_fields() {
+        let view = ListView::new(42);
+        assert_eq!(view.count, 42);
+        assert_eq!(view.offset, 0);
+        assert_eq!(view.cursor, 0);
+        assert!(view.height >= 1);
+    }
+
+    #[test]
+    fn resize_keeps_height_sane() {
+        let mut view = ListView::new(0);
+        view.resize();
+        assert!(view.height >= 1);
+    }
+
+    #[test]
     fn empty_list_navigation_is_safe() {
         let mut view = ListView {
             offset: 0,

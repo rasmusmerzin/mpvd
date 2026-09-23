@@ -56,6 +56,22 @@ mod tests {
     use super::*;
 
     #[test]
+    fn is_mpv_audio_detects_known_extensions() {
+        assert!(is_mpv_audio(Path::new("a.flac")));
+        assert!(is_mpv_audio(Path::new("b.MP3")));
+        assert!(is_mpv_audio(Path::new("c.ogg")));
+        assert!(is_mpv_audio(Path::new("d.xspf")));
+        assert!(!is_mpv_audio(Path::new("e.txt")));
+        assert!(!is_mpv_audio(Path::new("no-extension")));
+    }
+
+    #[test]
+    fn find_files_missing_dir_is_empty() {
+        let files = find_files(Path::new("/nonexistent/mpvd-test-dir"));
+        assert!(files.is_empty());
+    }
+
+    #[test]
     fn cyclic_symlink_terminates() {
         let base = std::env::temp_dir().join(format!("mpvd-find-test-{}", std::process::id()));
         let sub = base.join("a");

@@ -7,7 +7,7 @@ use ratatui::{Terminal, backend::CrosstermBackend, layout::Size};
 pub fn term_size() -> Option<Size> {
     let stdout = std::io::stdout();
     let backend = CrosstermBackend::new(stdout);
-    let terminal = Terminal::new(backend).unwrap();
+    let terminal = Terminal::new(backend).ok()?;
     terminal.size().ok()
 }
 
@@ -21,4 +21,20 @@ pub fn term_restore() {
     disable_raw_mode().ok();
     let mut stdout = std::io::stdout();
     execute!(stdout, LeaveAlternateScreen).ok();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn term_size_is_option() {
+        let _ = term_size();
+    }
+
+    #[test]
+    fn alternate_raw_roundtrip_is_noop_safe() {
+        term_alternate_raw();
+        term_restore();
+    }
 }
