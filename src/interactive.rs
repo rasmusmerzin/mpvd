@@ -1,8 +1,7 @@
-use std::io;
 use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
-use ratatui::backend::CrosstermBackend;
+use ratatui::backend::{Backend, CrosstermBackend};
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -146,11 +145,7 @@ impl PlaylistState {
         }
     }
 
-    fn handle_input(
-        &mut self,
-        terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
-        key: KeyEvent,
-    ) -> bool {
+    fn handle_input<B: Backend>(&mut self, terminal: &mut Terminal<B>, key: KeyEvent) -> bool {
         let m = key.modifiers;
         let has_ctrl = m.contains(KeyModifiers::CONTROL);
         let has_shift = m.contains(KeyModifiers::SHIFT);
@@ -322,7 +317,6 @@ mod tests {
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use ratatui::backend::TestBackend;
     use serde_json::{Value, json};
-    use std::io;
 
     fn item(name: &str, current: bool) -> control::PlaylistItem {
         control::PlaylistItem {
@@ -343,8 +337,8 @@ mod tests {
         KeyEvent::new(code, KeyModifiers::SHIFT)
     }
 
-    fn term() -> Terminal<CrosstermBackend<io::Stdout>> {
-        Terminal::new(CrosstermBackend::new(io::stdout())).unwrap()
+    fn term() -> Terminal<TestBackend> {
+        Terminal::new(TestBackend::new(80, 24)).unwrap()
     }
 
     fn three_track() -> Value {
