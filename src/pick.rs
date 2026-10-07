@@ -12,6 +12,7 @@ use ratatui::{Frame, Terminal};
 use crate::config;
 use crate::control;
 use crate::daemon;
+use crate::durations;
 use crate::find;
 use crate::list::ListView;
 use crate::term::{term_alternate_raw, term_restore};
@@ -213,17 +214,31 @@ impl Picker {
                         .unwrap_or_else(|| file.to_string_lossy().to_string())
                 };
 
-                let text = format!("{prefix}{name}");
-                let text = text.chars().take(area.width as usize).collect::<String>();
-                let text = format!("{text:<width$}", width = area.width as usize);
+                let path = file.to_string_lossy();
+                durations::request(&path);
+                let duration_str = durations::get(&path)
+                    .map(control::format_time)
+                    .unwrap_or_default();
+
+                let name_max =
+                    (area.width as usize).saturating_sub(prefix.len() + duration_str.len());
+                let name = pad_to_width(&name, name_max);
 
                 let style = if is_hover {
                     Style::default().add_modifier(Modifier::REVERSED)
                 } else {
                     Style::default()
                 };
+                let duration_style = if is_hover {
+                    style
+                } else {
+                    Style::default().dim()
+                };
 
-                Line::from(Span::styled(text, style))
+                Line::from(vec![
+                    Span::styled(format!("{prefix}{name}"), style),
+                    Span::styled(duration_str, duration_style),
+                ])
             })
             .collect();
 
@@ -421,6 +436,11 @@ impl Picker {
             println!("{}", file.display());
         }
     }
+}
+
+fn pad_to_width(text: &str, width: usize) -> String {
+    let truncated: String = text.chars().take(width).collect();
+    format!("{truncated:<width$}")
 }
 
 pub fn run(dir: &str) {
@@ -701,6 +721,17 @@ mod tests {
         assert!(row.trim_start().starts_with("* "));
         let row2: String = out.lines().nth(1).unwrap().to_string();
         assert!(row2.trim_start().starts_with("i "));
+    }
+
+    #[test]
+    fn render_items_shows_duration_column() {
+        crate::durations::seed("dur-pick-test.mp3", 61.5);
+        let mut p = picker_of(&["dur-pick-test.mp3"]);
+        p.view.height = 1;
+        let out = buffer_str(&p, 40, 2);
+        let row: String = out.lines().next().unwrap().to_string();
+        assert!(row.contains("dur-pick-test.mp3"));
+        assert!(row.trim_end().ends_with("01:01"));
     }
 
     #[test]

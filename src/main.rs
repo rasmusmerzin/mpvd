@@ -1,6 +1,7 @@
 mod config;
 mod control;
 mod daemon;
+mod durations;
 mod find;
 mod interactive;
 mod ipc;

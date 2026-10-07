@@ -11,6 +11,7 @@ and this project adheres to
 ### Added
 
 - Interactive list now includes song durations.
+- File picker now shows song durations for visible files.
 - `mpvd time [file]` accepts an optional file path to print its duration via
   `ffprobe` instead of the current track time position.
 

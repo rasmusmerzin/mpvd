@@ -1,10 +1,6 @@
-use std::sync::mpsc::Receiver;
-use std::sync::{Arc, mpsc};
-use std::thread::{JoinHandle, spawn};
 use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
-use dashmap::DashMap;
 use ratatui::backend::{Backend, CrosstermBackend};
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
@@ -13,6 +9,7 @@ use ratatui::widgets::Paragraph;
 use ratatui::{Frame, Terminal};
 
 use crate::control::{self, format_time};
+use crate::durations;
 use crate::ipc;
 use crate::list::ListView;
 use crate::pick;
@@ -22,7 +19,6 @@ use crate::{config, daemon};
 struct PlaylistState {
     view: ListView,
     playlist: Vec<control::PlaylistItem>,
-    durations: Arc<DashMap<String, f64>>,
     paused: bool,
     time: f64,
     duration: f64,
@@ -34,7 +30,6 @@ impl PlaylistState {
         Self {
             view: ListView::new(0),
             playlist: Vec::new(),
-            durations: Arc::new(DashMap::new()),
             paused: false,
             time: 0.0,
             duration: 0.0,
@@ -83,9 +78,9 @@ impl PlaylistState {
                 let idx = i + self.view.offset;
                 let is_hover = idx == self.view.cursor;
                 let is_current = item.current.unwrap_or(false);
-                let duration = self.durations.get(&item.filename);
+                let duration = durations::get(&item.filename);
 
-                let duration_str = duration.map(|d| format_time(*d)).unwrap_or("".into());
+                let duration_str = duration.map(format_time).unwrap_or("".into());
                 let index_str = format!("{:>4} ", idx + 1);
                 let cursor = if is_current {
                     if self.paused { "- " } else { "* " }
@@ -231,20 +226,6 @@ impl PlaylistState {
         }
         false
     }
-
-    fn spawn_duration_prober(&self, rx: Receiver<String>) -> JoinHandle<()> {
-        let durations = self.durations.clone();
-        spawn(move || {
-            while let Ok(filename) = rx.recv() {
-                if durations.contains_key(&filename) {
-                    continue;
-                }
-                if let Some(d) = control::probe_duration(&filename) {
-                    durations.insert(filename, d);
-                }
-            }
-        })
-    }
 }
 
 pub fn run() {
@@ -284,9 +265,6 @@ pub fn run() {
         state.duration = d;
     }
 
-    let (probe_tx, rx) = mpsc::channel();
-    state.spawn_duration_prober(rx);
-
     loop {
         state.view.resize();
         terminal.draw(|f| state.render(f)).unwrap();
@@ -305,7 +283,7 @@ pub fn run() {
                     state.view.count = state.playlist.len();
                     state.view.clamp_scroll();
                     for entry in &state.playlist {
-                        probe_tx.send(entry.filename.clone()).ok();
+                        durations::request(&entry.filename);
                     }
                 }
             } else if id == pause_oid {
