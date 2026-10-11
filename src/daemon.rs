@@ -1,7 +1,9 @@
 use std::fs;
+use std::io::{Read, Write};
+use std::net::Shutdown;
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitCode, Stdio};
+use std::process::{self, Command, ExitCode, Stdio};
 use std::sync::atomic::{AtomicI32, AtomicU32, Ordering};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
@@ -20,7 +22,7 @@ extern "C" fn on_termination(sig: libc::c_int) {
     PENDING_SIG.store(sig, Ordering::SeqCst);
     let pid = CHILD_PID.load(Ordering::SeqCst);
     if pid != 0 {
-        // Relay to mpv; the waitpid loop then runs the usual cleanup
+        // Relay to mpv; the supervisor then runs the usual cleanup
         unsafe { libc::kill(pid as i32, sig) };
     }
 }
@@ -39,14 +41,8 @@ pub fn get_pid() -> Option<u32> {
 }
 
 fn process_alive(pid: u32) -> bool {
-    match unsafe { libc::kill(pid as i32, 0) } {
-        // A freshly killed child lingers as a zombie until the supervisor
-        // reaps it, and zombies answer kill(0) like live processes
-        0 => !is_zombie(pid),
-        // Process exists but is owned by another user
-        -1 => std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM),
-        _ => false,
-    }
+    let proc_dir = Path::new("/proc").join(pid.to_string());
+    proc_dir.exists() && !is_zombie(pid)
 }
 
 fn is_zombie(pid: u32) -> bool {
@@ -68,42 +64,33 @@ pub fn start() -> ExitCode {
     let sock = config::mpvd_sock();
     let pid_path = config::mpvd_pid();
 
-    let mut fds = [0 as libc::c_int; 2];
-    if unsafe { libc::pipe(fds.as_mut_ptr()) } != 0 {
-        eprintln!("failed to create pipe: {}", std::io::Error::last_os_error());
+    let Ok((mut parent_stream, mut child_stream)) = UnixStream::pair() else {
+        eprintln!("failed to create handshake socket");
         return ExitCode::from(1);
-    }
-    // Keep the handshake fds out of mpv's inherited descriptor table so the
-    // parent sees EOF once the supervisor reports
-    for fd in fds {
-        unsafe { libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC) };
-    }
+    };
 
     match unsafe { libc::fork() } {
         -1 => {
             eprintln!("failed to fork: {}", std::io::Error::last_os_error());
-            unsafe {
-                libc::close(fds[0]);
-                libc::close(fds[1]);
-            }
             ExitCode::from(1)
         }
-        0 => supervise(&sock, &pid_path, fds),
-        _ => await_supervisor(fds),
+        0 => {
+            drop(parent_stream);
+            supervise(&sock, &pid_path, &mut child_stream)
+        }
+        _ => {
+            drop(child_stream);
+            await_supervisor(&mut parent_stream)
+        }
     }
 }
 
 /// Child side of the trap: becomes session leader, spawns mpv as a direct
 /// child, then blocks until mpv dies for any reason before cleaning up.
-fn supervise(sock: &Path, pid_path: &Path, fds: [libc::c_int; 2]) -> ! {
-    let (rfd, wfd) = (fds[0], fds[1]);
-    unsafe { libc::close(rfd) };
-    unsafe {
-        // Daemonize: create a new session and detach from terminal
-        libc::setsid();
-    }
+fn supervise(sock: &Path, pid_path: &Path, status: &mut UnixStream) -> ! {
+    // Daemonize: create a new session and detach from the controlling terminal.
+    unsafe { libc::setsid() };
     install_signal_handlers();
-    detach_stdio();
 
     let Ok(mut child) = Command::new("mpv")
         .args([
@@ -117,7 +104,7 @@ fn supervise(sock: &Path, pid_path: &Path, fds: [libc::c_int; 2]) -> ! {
         .stderr(Stdio::null())
         .spawn()
     else {
-        fail(wfd, "failed to spawn mpv");
+        fail(status, "failed to spawn mpv");
     };
 
     let pid = child.id();
@@ -129,24 +116,24 @@ fn supervise(sock: &Path, pid_path: &Path, fds: [libc::c_int; 2]) -> ! {
     }
     if let Err(e) = fs::write(pid_path, format!("{pid}\n")) {
         let _ = child.kill();
-        fail(wfd, &format!("failed to write pid file: {e}"));
+        fail(status, &format!("failed to write pid file: {e}"));
     }
 
     // mpv creates the IPC socket asynchronously after spawn, and the
     // handshake must only report success once the daemon is usable
     if !await_socket(sock, Duration::from_secs(10)) {
         let _ = child.kill();
-        fail(wfd, "mpv failed to create IPC socket");
+        fail(status, "mpv failed to create IPC socket");
     }
 
-    write_status(wfd, STATUS_OK, "");
-    unsafe { libc::close(wfd) };
-    wait_child(pid as i32);
+    write_status(status, STATUS_OK, "");
+    let _ = status.shutdown(Shutdown::Write);
+    let _ = child.wait();
 
     // Clean up socket and pid files once mpv is gone
     let _ = fs::remove_file(sock);
     let _ = fs::remove_file(pid_path);
-    unsafe { libc::_exit(0) }
+    process::exit(0)
 }
 
 /// Probe readiness with real connect attempts rather than socket file
@@ -168,11 +155,8 @@ fn await_socket(sock: &Path, timeout: Duration) -> bool {
 
 /// Parent side of the handshake: reads the supervisor's status report without
 /// reaping it, leaving the long-lived supervisor to be reparented on exit.
-fn await_supervisor(fds: [libc::c_int; 2]) -> ExitCode {
-    let (rfd, wfd) = (fds[0], fds[1]);
-    unsafe { libc::close(wfd) };
-    let status = read_status(rfd);
-    unsafe { libc::close(rfd) };
+fn await_supervisor(stream: &mut UnixStream) -> ExitCode {
+    let status = read_status(stream);
     match status.first() {
         Some(&STATUS_OK) => ExitCode::SUCCESS,
         Some(&STATUS_ERR) => {
@@ -191,10 +175,9 @@ fn await_supervisor(fds: [libc::c_int; 2]) -> ExitCode {
     }
 }
 
-fn fail(wfd: libc::c_int, msg: &str) -> ! {
-    write_status(wfd, STATUS_ERR, msg);
-    unsafe { libc::close(wfd) };
-    unsafe { libc::_exit(1) }
+fn fail(status: &mut UnixStream, msg: &str) -> ! {
+    write_status(status, STATUS_ERR, msg);
+    process::exit(1)
 }
 
 /// Trap termination signals by relaying them to mpv, so `pkill mpvd` and
@@ -210,81 +193,29 @@ fn install_signal_handlers() {
     }
 }
 
-fn detach_stdio() {
-    let devnull = b"/dev/null\0";
-    let fd = unsafe { libc::open(devnull.as_ptr().cast(), libc::O_RDWR) };
-    if fd < 0 {
-        return;
-    }
-    for target in [libc::STDIN_FILENO, libc::STDOUT_FILENO, libc::STDERR_FILENO] {
-        unsafe { libc::dup2(fd, target) };
-    }
-    if fd > libc::STDERR_FILENO {
-        unsafe { libc::close(fd) };
-    }
-}
-
-fn write_status(fd: libc::c_int, kind: u8, msg: &str) {
+fn write_status(writer: &mut impl Write, kind: u8, msg: &str) {
     let mut buf = Vec::with_capacity(1 + msg.len());
     buf.push(kind);
     buf.extend_from_slice(msg.as_bytes());
-    write_all(fd, &buf);
+    write_all(writer, &buf);
 }
 
-fn write_all(fd: libc::c_int, mut data: &[u8]) {
-    while !data.is_empty() {
-        let written = unsafe { libc::write(fd, data.as_ptr().cast(), data.len()) };
-        if written < 0 {
-            if std::io::Error::last_os_error().raw_os_error() == Some(libc::EINTR) {
-                continue;
-            }
-            return;
-        }
-        data = &data[written as usize..];
-    }
+fn write_all(writer: &mut impl Write, data: &[u8]) {
+    let _ = writer.write_all(data);
 }
 
-fn read_status(fd: libc::c_int) -> Vec<u8> {
-    let mut chunk = [0u8; 512];
+fn read_status(reader: &mut impl Read) -> Vec<u8> {
     let mut buf = Vec::new();
-    loop {
-        let n = unsafe { libc::read(fd, chunk.as_mut_ptr().cast(), chunk.len()) };
-        if n < 0 {
-            if std::io::Error::last_os_error().raw_os_error() == Some(libc::EINTR) {
-                continue;
-            }
-            break;
-        }
-        if n == 0 {
-            break;
-        }
-        buf.extend_from_slice(&chunk[..n as usize]);
-    }
+    let _ = reader.read_to_end(&mut buf);
     buf
 }
 
-fn wait_child(pid: libc::pid_t) {
-    loop {
-        let mut status = 0;
-        let reaped = unsafe { libc::waitpid(pid, &mut status, 0) };
-        if reaped < 0 && std::io::Error::last_os_error().raw_os_error() == Some(libc::EINTR) {
-            continue;
-        }
-        break;
-    }
-}
-
 pub fn kill() -> ExitCode {
-    let mut success = true;
-    if let Some(pid) = get_pid() {
-        // Send SIGTERM
-        unsafe {
-            if libc::kill(pid as i32, libc::SIGTERM) != 0 {
-                success = false;
-            }
-        }
-    } else {
-        success = false;
+    let mut success = false;
+    if let Some(pid) = get_pid()
+        && unsafe { libc::kill(pid as i32, libc::SIGTERM) } == 0
+    {
+        success = true;
     }
     // Clean up socket and pid files
     let _ = fs::remove_file(config::mpvd_sock());
@@ -454,36 +385,30 @@ mod tests {
 
     #[test]
     fn write_read_status_roundtrip() {
-        let mut fds = [0 as libc::c_int; 2];
-        assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
-        write_status(fds[1], STATUS_OK, "hello");
-        write_status(fds[1], STATUS_ERR, "boom");
-        unsafe { libc::close(fds[1]) };
-        let out = read_status(fds[0]);
-        unsafe { libc::close(fds[0]) };
+        let (mut writer, mut reader) = UnixStream::pair().unwrap();
+        write_status(&mut writer, STATUS_OK, "hello");
+        write_status(&mut writer, STATUS_ERR, "boom");
+        writer.shutdown(Shutdown::Write).unwrap();
+        let out = read_status(&mut reader);
         assert_eq!(out, b"1hello0boom".to_vec());
     }
 
     #[test]
     fn write_status_empty_and_read_status_closed() {
-        let mut fds = [0 as libc::c_int; 2];
-        assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
-        write_status(fds[1], STATUS_OK, "");
-        unsafe { libc::close(fds[1]) };
-        let out = read_status(fds[0]);
-        unsafe { libc::close(fds[0]) };
+        let (mut writer, mut reader) = UnixStream::pair().unwrap();
+        write_status(&mut writer, STATUS_OK, "");
+        writer.shutdown(Shutdown::Write).unwrap();
+        let out = read_status(&mut reader);
         assert_eq!(out, b"1".to_vec());
     }
 
     #[test]
     fn write_all_writes_everything() {
-        let mut fds = [0 as libc::c_int; 2];
-        assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
+        let (mut writer, mut reader) = UnixStream::pair().unwrap();
         let payload = vec![b'x'; 4096];
-        write_all(fds[1], &payload);
-        unsafe { libc::close(fds[1]) };
-        let out = read_status(fds[0]);
-        unsafe { libc::close(fds[0]) };
+        write_all(&mut writer, &payload);
+        writer.shutdown(Shutdown::Write).unwrap();
+        let out = read_status(&mut reader);
         assert_eq!(out, payload);
     }
 }

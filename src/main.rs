@@ -177,7 +177,7 @@ fn time_string(seconds: bool, duration: bool, file: Option<PathBuf>) -> Result<S
         let mut total = 0.0;
         for filepath in &files {
             let file_str = filepath.to_string_lossy().to_string();
-            let d = control::probe_duration(&file_str)
+            let d = durations::probe_duration(&file_str)
                 .ok_or_else(|| format!("failed to probe duration: {file_str}"))?;
             total += d;
         }

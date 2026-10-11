@@ -4,8 +4,6 @@ use std::thread;
 
 use dashmap::DashMap;
 
-use crate::control;
-
 const WORKERS: usize = 4;
 
 static CACHE: LazyLock<DashMap<String, f64>> = LazyLock::new(DashMap::new);
@@ -20,7 +18,7 @@ fn start_prober() -> Sender<String> {
             loop {
                 let next = rx.lock().unwrap().recv();
                 let Ok(filename) = next else { break };
-                let d = control::probe_duration(&filename).unwrap_or(f64::NAN);
+                let d = probe_duration(&filename).unwrap_or(f64::NAN);
                 CACHE.insert(filename, d);
             }
         });
@@ -47,6 +45,24 @@ pub fn request(path: &str) {
 #[cfg(test)]
 pub fn seed(path: &str, d: f64) {
     CACHE.insert(path.to_string(), d);
+}
+
+pub fn probe_duration(filepath: &str) -> Option<f64> {
+    let out = std::process::Command::new("ffprobe")
+        .args([
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "csv=p=0",
+            "--",
+            filepath,
+        ])
+        .output()
+        .ok()?;
+    let s = String::from_utf8(out.stdout).ok()?;
+    s.trim().parse::<f64>().ok()
 }
 
 #[cfg(test)]

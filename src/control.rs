@@ -161,23 +161,6 @@ pub fn display_name(filepath: &str, absolute: bool) -> &str {
     }
 }
 
-pub fn probe_duration(filepath: &str) -> Option<f64> {
-    let out = std::process::Command::new("ffprobe")
-        .args([
-            "-v",
-            "error",
-            "-show_entries",
-            "format=duration",
-            "-of",
-            "default=nw=1:nk=1",
-            filepath,
-        ])
-        .output()
-        .ok()?;
-    let s = String::from_utf8(out.stdout).ok()?;
-    s.trim().parse::<f64>().ok()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
